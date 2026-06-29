@@ -1,3 +1,183 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Good Bingo</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary-color: #2563eb;
+            --selected-color: #10b981;
+            --text-color: #1f2937;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 1.75rem;
+            color: var(--primary-color);
+        }
+
+        .bingo-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.25rem;
+            color: var(--primary-color);
+        }
+
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background-color: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .cell:active {
+            transform: scale(0.95);
+        }
+
+        .cell.selected {
+            background-color: var(--selected-color);
+            color: white;
+            border-color: #059669;
+        }
+
+        .cell.free-space {
+            background-color: #dedede;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Good Bingo</h1>
+    
+    <div class="bingo-header">
+        <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+    </div>
+
+    <div id="bingoGrid" class="bingo-grid"></div>
+
+    <button class="btn" onclick="generateNewCard()">አዲስ ካርድ ቀይር</button>
+</div>
+
+<script>
+    const grid = document.getElementById('bingoGrid');
+
+    // በየዓምዱ የማይደጋገሙ የቢንጎ ቁጥሮችን ለማውጣት
+    function getRandomNumbers(min, max, count) {
+        const pool = [];
+        for (let i = min; i <= max; i++) pool.push(i);
+        
+        const result = [];
+        for (let i = 0; i < count; i++) {
+            const randomIndex = Math.floor(Math.random() * pool.length);
+            result.push(pool.splice(randomIndex, 1)[0]);
+        }
+        return result;
+    }
+
+    function generateNewCard() {
+        grid.innerHTML = '';
+
+        // መደበኛ የቢንጎ ቁጥሮች ስርጭት (B:1-15, I:16-30, N:31-45, G:46-60, O:61-75)
+        const columns = [
+            getRandomNumbers(1, 15, 5),
+            getRandomNumbers(16, 30, 5),
+            getRandomNumbers(31, 45, 5),
+            getRandomNumbers(46, 60, 5),
+            getRandomNumbers(61, 75, 5)
+        ];
+
+        // 5x5 ግሪድ መፍጠር
+        for (let row = 0; row < 5; row++) {
+            for (let col = 0; col < 5; col++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+
+                // የመካከለኛዋን ሳጥን በነጻ (FREE) መሙላት
+                if (row === 2 && col === 2) {
+                    cell.textContent = 'FREE';
+                    cell.classList.add('free-space', 'selected');
+                } else {
+                    cell.textContent = columns[col][row];
+                    cell.addEventListener('click', () => {
+                        cell.classList.toggle('selected');
+                    });
+                }
+
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    // ገጹ መጀመሪያ ሲከፈት ካርዱን ለማውጣት
+    generateNewCard();
+</script>
+
+</body>
+</html>
 import random
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
