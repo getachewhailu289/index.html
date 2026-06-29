@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Good Bingo</title>
+    <title>Win Lottory</title>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -111,7 +111,7 @@
 <body>
 
 <div class="container">
-    <h1>Good Bingo</h1>
+    <h1>Win Lottory</h1>
     
     <div class="bingo-header">
         <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
@@ -119,13 +119,13 @@
 
     <div id="bingoGrid" class="bingo-grid"></div>
 
-    <button class="btn" onclick="generateNewCard()">አዲስ ካርድ ቀይር</button>
+    <button class="btn" onclick="generateNewCard()">ሌላ ቁጥር ለመቀየር</button>
 </div>
 
 <script>
     const grid = document.getElementById('bingoGrid');
 
-    // በየዓምዱ የማይደጋገሙ የቢንጎ ቁጥሮችን ለማውጣት
+    // የማይደጋገሙ  ቁጥሮችን ለማውጣት
     function getRandomNumbers(min, max, count) {
         const pool = [];
         for (let i = min; i <= max; i++) pool.push(i);
@@ -141,7 +141,7 @@
     function generateNewCard() {
         grid.innerHTML = '';
 
-        // መደበኛ የቢንጎ ቁጥሮች ስርጭት (B:1-15, I:16-30, N:31-45, G:46-60, O:61-75)
+        // መደበኛ  ቁጥሮች ስርጭት (B:1-15, I:16-30, N:31-45, G:46-60, O:61-75)
         const columns = [
             getRandomNumbers(1, 15, 5),
             getRandomNumbers(16, 30, 5),
