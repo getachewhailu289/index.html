@@ -2,7 +2,7 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>WinBingo Full Game</title>
+    <title>GoodBingo Full Game</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
         .hidden { display: none; }
@@ -31,9 +31,8 @@
             <div>ጊዜ: <span id="timer">30</span>s</div>
             <div>ሒሳብ: <span id="balance">60.00</span> ETB</div>
         </div>
-        <h2>ካርቴላ ይምረጡ </h2>
+        <h2>ካርድዎን ይምረጡ (ከ 2 ቁጥር አይበልጥም)</h2>
         <div id="bingo-container"></div>
-        <button onclick="startCountdown()" style="margin-top:20px; padding:10px 20px; width: 100%;"></button>
     </div>
 
     <!-- ክፍል 2: የጨዋታ በይነገጽ -->
@@ -86,17 +85,18 @@
             container.appendChild(cell);
         }
 
-        // 2. የሰከንድ ቆጠራ
+        // 2. የሰከንድ ቆጠራ እና በራስ-ሰር መጀመር
         const countdown = setInterval(() => {
             if (timeLeft > 0) {
                 timeLeft--;
                 document.getElementById('timer').innerText = timeLeft;
             } else {
                 clearInterval(countdown);
+                startCountdown(); // 30 ሴኮንድ ሲያልቅ በራሱ ወደ ጨዋታ ይወስዳል
             }
         }, 1000);
 
-        // 3. ጨዋታ መጀመር
+        // 3. ጨዋታ መጀመር ተግባር
         function startCountdown() {
             document.getElementById('selection-view').classList.add('hidden');
             document.getElementById('game-view').classList.remove('hidden');
