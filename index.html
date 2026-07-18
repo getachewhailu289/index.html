@@ -2,179 +2,101 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Win Lottory</title>
+    <title>GoodBingo Full Game</title>
     <style>
-        :root {
-            --bg-color: #f4f7f6;
-            --card-bg: #ffffff;
-            --primary-color: #2563eb;
-            --selected-color: #10b981;
-            --text-color: #1f2937;
-        }
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .hidden { display: none; }
+        
+        /* ምርጫ */
+        #bingo-container { display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; }
+        .cell { padding: 5px; border: 1px solid #ccc; text-align: center; cursor: pointer; background: white; }
+        .cell.sold { background-color: #4CAF50; color: white; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
+        /* ጨዋታ */
+        .game-layout { display: flex; gap: 20px; margin-top: 20px; }
+        .draw-board { display: grid; grid-template-columns: repeat(5, 30px); gap: 3px; }
+        .ball { width: 30px; height: 30px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; background: white; }
+        .ball.drawn { background-color: #f44336; color: white; }
 
-        .container {
-            width: 100%;
-            max-width: 400px;
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        h1 {
-            margin-top: 0;
-            font-size: 1.75rem;
-            color: var(--primary-color);
-        }
-
-        .bingo-header {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin-bottom: 8px;
-            font-weight: bold;
-            font-size: 1.25rem;
-            color: var(--primary-color);
-        }
-
-        .bingo-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .cell {
-            aspect-ratio: 1;
-            background-color: #f3f4f6;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            user-select: none;
-        }
-
-        .cell:active {
-            transform: scale(0.95);
-        }
-
-        .cell.selected {
-            background-color: var(--selected-color);
-            color: white;
-            border-color: #059669;
-        }
-
-        .cell.free-space {
-            background-color: #dedede;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-        }
-
-        .btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            transition: background-color 0.2s;
-        }
-
-        .btn:hover {
-            background-color: #1d4ed8;
-        }
+        /* ሞዳል */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; text-align: center; width: 80%; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Win Lottory</h1>
-    
-    <div class="bingo-header">
-        <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+    <!-- ክፍል 1: ካርድ መግዣ -->
+    <div id="selection-view">
+        <h2>ካርድዎን ይምረጡ (400 ቁጥሮች)</h2>
+        <div id="bingo-container"></div>
+        <button onclick="startCountdown()" style="margin-top:20px; padding:10px 20px;">ጨዋታ ይጀምሩ</button>
     </div>
 
-    <div id="bingoGrid" class="bingo-grid"></div>
+    <!-- ክፍል 2: የጨዋታ በይነገጽ -->
+    <div id="game-view" class="hidden">
+        <h2>የጨዋታ በይነገጽ</h2>
+        <div class="game-layout">
+            <div id="draw-board" class="draw-board"></div>
+            <div id="my-card-display"><h3>የእርስዎ ካርድ</h3></div>
+        </div>
+        <h1 id="current-ball">ቁጥር እየተጠበቀ ነው...</h1>
+    </div>
 
-    <button class="btn" onclick="generateNewCard()">ሌላ ቁጥር ለመቀየር</button>
-</div>
+    <!-- ክፍል 3: አሸናፊ ማሳያ -->
+    <div id="winner-modal" class="modal">
+        <div class="modal-content">
+            <div style="font-size: 50px;">🏆</div>
+            <div id="winner-text" style="font-size: 24px; color: #4CAF50; font-weight: bold;">ela has won!</div>
+            <div id="prize-amount" style="font-size: 28px; color: #007bff; font-weight: bold;">1232 ETB</div>
+            <div id="next-round-timer">NEXT ROUND: 11S</div>
+        </div>
+    </div>
 
-<script>
-    const grid = document.getElementById('bingoGrid');
-
-    // የማይደጋገሙ  ቁጥሮችን ለማውጣት
-    function getRandomNumbers(min, max, count) {
-        const pool = [];
-        for (let i = min; i <= max; i++) pool.push(i);
-        
-        const result = [];
-        for (let i = 0; i < count; i++) {
-            const randomIndex = Math.floor(Math.random() * pool.length);
-            result.push(pool.splice(randomIndex, 1)[0]);
+    <script>
+        // 1. መጀመሪያ ክፍል: ካርድ መግዣ
+        const container = document.getElementById('bingo-container');
+        for (let i = 1; i <= 400; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.innerText = i;
+            cell.addEventListener('click', () => cell.classList.toggle('sold'));
+            container.appendChild(cell);
         }
-        return result;
-    }
 
-    function generateNewCard() {
-        grid.innerHTML = '';
+        // 2. ጨዋታ መጀመር
+        function startCountdown() {
+            document.getElementById('selection-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            setupDrawBoard();
+        }
 
-        // መደበኛ  ቁጥሮች ስርጭት (B:1-15, I:16-30, N:31-45, G:46-60, O:61-75)
-        const columns = [
-            getRandomNumbers(1, 15, 5),
-            getRandomNumbers(16, 30, 5),
-            getRandomNumbers(31, 45, 5),
-            getRandomNumbers(46, 60, 5),
-            getRandomNumbers(61, 75, 5)
-        ];
-
-        // 5x5 ግሪድ መፍጠር
-        for (let row = 0; row < 5; row++) {
-            for (let col = 0; col < 5; col++) {
-                const cell = document.createElement('div');
-                cell.classList.add('cell');
-
-                // የመካከለኛዋን ሳጥን በነጻ (FREE) መሙላት
-                if (row === 2 && col === 2) {
-                    cell.textContent = 'FREE';
-                    cell.classList.add('free-space', 'selected');
-                } else {
-                    cell.textContent = columns[col][row];
-                    cell.addEventListener('click', () => {
-                        cell.classList.toggle('selected');
-                    });
-                }
-
-                grid.appendChild(cell);
+        function setupDrawBoard() {
+            const board = document.getElementById('draw-board');
+            for (let i = 1; i <= 75; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.id = 'ball-' + i;
+                ball.innerText = i;
+                board.appendChild(ball);
             }
         }
-    }
 
-    // ገጹ መጀመሪያ ሲከፈት ካርዱን ለማውጣት
-    generateNewCard();
-</script>
-
+        // 3. አሸናፊ ማሳያ ተግባር
+        function showWinner(winnerName, prize) {
+            document.getElementById('winner-modal').style.display = 'flex';
+            document.getElementById('winner-text').innerText = winnerName + " has won!";
+            document.getElementById('prize-amount').innerText = prize + " ETB";
+            
+            let timeLeft = 11;
+            const timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('next-round-timer').innerText = "NEXT ROUND: " + timeLeft + "S";
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    document.getElementById('winner-modal').style.display = 'none';
+                }
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
