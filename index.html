@@ -10,39 +10,36 @@
         .grid-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
         .cell { padding: 10px; background: white; border: 1px solid #ccc; text-align: center; cursor: pointer; border-radius: 4px; }
         .cell.sold { background: #4CAF50; color: white; border-color: #2e7d32; }
-        /* የጨዋታ በይነገጽ ስታይል */
-        .bingo-table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; }
-        .bingo-table td { border: 1px solid #333; padding: 15px; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- መግዣ ገጽ -->
     <div id="shop-view">
-        <div style="background: #2c3e50; color: white; padding: 10px; border-radius: 8px;">
-            ባላንስ: <span id="balance">1000.00</span> ETB | ጊዜ: <span id="timer">30</span>s
+        <div style="display: flex; gap: 5px; background: #2c3e50; color: white; padding: 10px; border-radius: 8px;">
+            <div style="flex:1">ባላንስ: <span id="balance">1000.00</span></div>
+            <div style="flex:1">ሰዓት: <span id="timer">30</span>s</div>
+            <div style="flex:1">SOLD: <span id="sold-count">0</span></div>
         </div>
-        <h3>ካርዶችን ይምረጡ (የተሸጠ ካርድ አረንጓዴ ይሆናል)</h3>
+        <h3>ካርዶችን ይምረጡ</h3>
         <div id="cards-grid" class="grid-container"></div>
     </div>
 
-    <!-- መጫወቻ ገጽ -->
-    <div id="play-view" class="hidden">
-        <h2>የገዙት የቢንጎ ካርዶች</h2>
-        <div id="bingo-board"></div>
-    </div>
-
     <script>
-        let balance = 1000.00;
-        let selectedCards = [];
-        let time = 30;
+        // ከ localStorage መረጃን መመለስ
+        let balance = parseFloat(localStorage.getItem('balance')) || 1000.00;
+        let selectedCards = JSON.parse(localStorage.getItem('selectedCards')) || [];
+        let time = parseInt(localStorage.getItem('timer')) || 30;
 
-        // 1. መግዣ ገጽ ሰሌዳ
+        document.getElementById('balance').innerText = balance.toFixed(2);
+        document.getElementById('sold-count').innerText = selectedCards.length;
+
         const grid = document.getElementById('cards-grid');
         for (let i = 1; i <= 400; i++) {
             const div = document.createElement('div');
             div.className = 'cell';
             div.innerText = i;
+            if(selectedCards.includes(i)) div.classList.add('sold');
+
             div.onclick = function() {
                 if (div.classList.contains('sold')) {
                     div.classList.remove('sold');
@@ -53,46 +50,26 @@
                     selectedCards.push(i);
                     balance -= 10;
                 }
-                document.getElementById('balance').innerText = balance.toFixed(2);
+                saveAndRefresh();
             };
             grid.appendChild(div);
         }
 
-        // 2. ቢንጎ ማትሪክስ ጄኔሬተር
-        function generateBingoCard() {
-            return {
-                B: getUnique(1, 15, 5), I: getUnique(16, 30, 5),
-                N: getUnique(31, 45, 5), G: getUnique(46, 60, 5), O: getUnique(61, 75, 5)
-            };
-        }
-        function getUnique(min, max, count) {
-            let nums = new Set();
-            while(nums.size < count) nums.add(Math.floor(Math.random() * (max - min + 1)) + min);
-            return Array.from(nums);
+        function saveAndRefresh() {
+            localStorage.setItem('balance', balance);
+            localStorage.setItem('selectedCards', JSON.stringify(selectedCards));
+            document.getElementById('balance').innerText = balance.toFixed(2);
+            document.getElementById('sold-count').innerText = selectedCards.length;
         }
 
-        // 3. ሰዓት ቆጠራ እና ወደ መጫወቻ ገጽ መሸጋገር
         const timerInterval = setInterval(() => {
             time--;
             document.getElementById('timer').innerText = time;
+            localStorage.setItem('timer', time);
             if (time <= 0) {
                 clearInterval(timerInterval);
-                document.getElementById('shop-view').classList.add('hidden');
-                document.getElementById('play-view').classList.remove('hidden');
-                
-                // የገዙትን ካርዶች ማሳየት
-                const board = document.getElementById('bingo-board');
-                selectedCards.forEach(id => {
-                    let cardData = generateBingoCard();
-                    board.innerHTML += `<h4>የተገዛ ካርድ ቁጥር #${id}</h4>
-                        <table class="bingo-table">
-                            <tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr>
-                            ${[0,1,2,3,4].map(r => `<tr>
-                                <td>${cardData.B[r]}</td><td>${cardData.I[r]}</td>
-                                <td>${cardData.N[r]}</td><td>${cardData.G[r]}</td><td>${cardData.O[r]}</td>
-                            </tr>`).join('')}
-                        </table>`;
-                });
+                alert("ጨዋታው ተጀምሯል!");
+                localStorage.clear(); // ጨዋታ ሲጀመር መረጃውን ማጽዳት
             }
         }, 1000);
     </script>
