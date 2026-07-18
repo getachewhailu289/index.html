@@ -1,66 +1,65 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="am">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Pro</title>
+    <title>GoodBingo Game</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
-        .hidden { display: none; }
-        /* የካርድ ማትሪክስ ስታይል */
-        #bingo-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .cell { padding: 10px; border: 1px solid #ccc; text-align: center; background: white; cursor: pointer; }
-        .cell.sold { background: #4CAF50; color: white; }
+        body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; font-size: 14px; }
+        .game-container { display: flex; padding: 10px; gap: 10px; }
+        
+        /* የግራ ሰሌዳ (75 ቁጥሮች) */
+        .left-board { display: grid; grid-template-columns: repeat(5, 1fr); width: 60%; background: white; padding: 2px; }
+        .cell-board { border: 1px solid #ccc; text-align: center; padding: 10px 0; }
+        .cell-board.drawn { background: #4CAF50; color: white; }
+        
+        /* የቀኝ ካርድ ማሳያ */
+        .right-card { width: 40%; background: white; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .ball-display { width: 80px; height: 80px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+        .card-grid { display: flex; gap: 5px; margin-top: 10px; }
+        .card-cell { border: 2px solid #ccc; padding: 15px; text-align: center; font-weight: bold; background: #fff59d; }
     </style>
 </head>
 <body>
 
-    <div id="selection-view">
-        <h3>ባላንስ: <span id="balance">1000.00</span> ETB</h3>
-        <div id="bingo-container"></div>
+    <div class="game-container">
+        <div id="left-board" class="left-board"></div>
+        <div class="right-card">
+            <div id="current-ball" class="ball-display">--</div>
+            <div style="font-weight:bold;">የእርስዎ ካርድ</div>
+            <div id="user-card" class="card-grid"></div>
+        </div>
     </div>
 
     <script>
-        let balance = parseFloat(localStorage.getItem('userBalance')) || 1000.00;
+        // ከ localStorage መረጃውን ማምጣት
         let soldNumbers = JSON.parse(localStorage.getItem('soldNumbers')) || [];
-        const CARD_PRICE = 10; // ዋጋ ወደ 10 ብር
+        let drawnNumbers = JSON.parse(localStorage.getItem('drawnNumbers')) || [];
 
-        const container = document.getElementById('bingo-container');
-        
-        // 1. ከ1 እስከ 400 ያሉ ካርዶች
-        for (let i = 1; i <= 400; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.innerText = i;
-            
-            // ካርዱ ቀድሞ ከተገዛ ምልክት ማድረግ
-            if (soldNumbers.includes(i)) cell.classList.add('sold');
-
-            cell.addEventListener('click', () => {
-                if (cell.classList.contains('sold')) {
-                    cell.classList.remove('sold');
-                    soldNumbers = soldNumbers.filter(n => n != i);
-                    balance += CARD_PRICE;
-                } else {
-                    if (balance >= CARD_PRICE) {
-                        cell.classList.add('sold');
-                        soldNumbers.push(i);
-                        balance -= CARD_PRICE;
-                    } else {
-                        alert("በቂ ባላንስ የለዎትም!");
-                    }
-                }
-                updateStorage();
-            });
-            container.appendChild(cell);
+        // የግራ ሰሌዳ መፍጠር
+        const board = document.getElementById('left-board');
+        for (let i = 1; i <= 75; i++) {
+            const div = document.createElement('div');
+            div.className = 'cell-board';
+            div.id = 'cell-' + i;
+            div.innerText = i;
+            if (drawnNumbers.includes(i)) div.classList.add('drawn');
+            board.appendChild(div);
         }
 
-        function updateStorage() {
-            localStorage.setItem('userBalance', balance);
-            localStorage.setItem('soldNumbers', JSON.stringify(soldNumbers));
-            document.getElementById('balance').innerText = balance.toFixed(2);
+        // የገዛነውን ካርድ በቀኝ ማሳየት
+        const card = document.getElementById('user-card');
+        soldNumbers.forEach(n => {
+            const div = document.createElement('div');
+            div.className = 'card-cell';
+            div.innerText = n;
+            card.appendChild(div);
+        });
+
+        // የወጣውን የመጨረሻ ቁጥር ማሳየት
+        if(drawnNumbers.length > 0) {
+            document.getElementById('current-ball').innerText = drawnNumbers[drawnNumbers.length - 1];
         }
     </script>
 </body>
 </html>
-    
