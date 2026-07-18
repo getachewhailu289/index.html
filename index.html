@@ -12,71 +12,76 @@
         .stats-top { display: flex; gap: 5px; margin-bottom: 15px; }
         .stat-box { flex: 1; padding: 10px; background: #2c3e50; color: white; border-radius: 8px; text-align: center; font-size: 11px; }
         
-        /* ሰሌዳ */
-        .grid-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 10px; }
-        .cell { padding: 12px 5px; border-radius: 5px; background: #f8f9fa; text-align: center; border: 1px solid #ddd; cursor: pointer; }
+        /* ሰሌዳ (8 ኮለመን) */
+        .grid-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; background: white; padding: 5px; border-radius: 10px; }
+        .cell { padding: 8px 2px; border-radius: 3px; background: #f8f9fa; text-align: center; border: 1px solid #ddd; cursor: pointer; font-size: 10px; }
         .cell.sold { background: #4CAF50; color: white; }
+        
+        /* የካርድ ማሳያ */
+        #ticket-display { margin-top: 15px; padding: 10px; background: white; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-    <!-- የጨዋታ መግዣ ገጽ -->
     <div id="shop-view">
         <div class="stats-top">
             <div class="stat-box">ROOM<br>VIP</div>
             <div class="stat-box">SOLD<br><span id="sold-count">0</span></div>
-            <div class="stat-box">TIME<br><span id="timer">19</span>s</div>
-            <div class="stat-box">BALANCE<br><span id="balance">60.00</span> ETB</div>
+            <div class="stat-box">TIME<br><span id="timer">30</span>s</div>
+            <div class="stat-box">BALANCE<br><span id="balance">1000.00</span> ETB</div>
         </div>
+        
         <div id="board" class="grid-board"></div>
+
+        <div id="ticket-display">
+            <strong>የገዙት ካርቴላ ቁጥር:</strong> <span id="my-tickets">ምንም አልመረጡም</span>
+        </div>
     </div>
 
-    <!-- የጨዋታ መጫወቻ ገጽ (ሲያልቅ ይታያል) -->
     <div id="play-view" class="hidden">
         <h1>ጨዋታው ተጀምሯል!</h1>
     </div>
 
     <script>
-        let balance = 60.00;
-        let sold = 0;
-        let time = 19;
+        let balance = 1000.00;
+        let soldNumbers = [];
+        let time = 30; // 1. ከ 30 ሰከንድ
         const CARD_PRICE = 10;
 
         const board = document.getElementById('board');
         
-        // 1. ሰሌዳውን መፍጠር
-        for (let i = 1; i <= 104; i++) {
+        // 3. እስከ 400 ቁጥሮች
+        for (let i = 1; i <= 400; i++) {
             const div = document.createElement('div');
             div.className = 'cell';
             div.innerText = i;
             div.onclick = function() {
                 if (!this.classList.contains('sold') && balance >= CARD_PRICE) {
                     this.classList.add('sold');
-                    sold++;
+                    soldNumbers.push(i);
                     balance -= CARD_PRICE;
-                    updateUI();
                 } else if (this.classList.contains('sold')) {
                     this.classList.remove('sold');
-                    sold--;
+                    soldNumbers = soldNumbers.filter(n => n !== i);
                     balance += CARD_PRICE;
-                    updateUI();
                 }
+                updateUI();
             };
             board.appendChild(div);
         }
 
+        // 2. የገዙትን ካርድ ማሳያ እና ባላንስ
         function updateUI() {
-            document.getElementById('sold-count').innerText = sold;
+            document.getElementById('sold-count').innerText = soldNumbers.length;
             document.getElementById('balance').innerText = balance.toFixed(2);
+            document.getElementById('my-tickets').innerText = soldNumbers.length > 0 ? soldNumbers.join(', ') : "ምንም አልመረጡም";
         }
 
-        // 2. ሰዓት ቆጠራ
         const countdown = setInterval(() => {
             time--;
             document.getElementById('timer').innerText = time;
             if (time <= 0) {
                 clearInterval(countdown);
-                // ወደ ጨዋታ በይነገጽ መቀየር
                 document.getElementById('shop-view').classList.add('hidden');
                 document.getElementById('play-view').classList.remove('hidden');
             }
