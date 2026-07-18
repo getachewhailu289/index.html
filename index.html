@@ -2,31 +2,27 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoodBingo Full Game</title>
     <style>
-        body { margin: 0; background-color: #eef2f5; font-family: sans-serif; padding: 10px; }
+        body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; font-size: 12px; }
         .hidden { display: none; }
         
-        /* ምርጫ ክፍል */
+        /* ክፍል 1: ካርድ መግዣ ስታይል */
+        #selection-view { padding: 20px; }
         #stats-bar { display: flex; justify-content: space-between; padding: 10px; background: #333; color: white; border-radius: 10px; margin-bottom: 20px; }
         #bingo-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
         .cell { padding: 8px; border: 1px solid #ccc; text-align: center; cursor: pointer; background: white; }
         .cell.sold { background-color: #4CAF50; color: white; }
 
-        /* የጨዋታ ክፍል (Side-by-Side) */
-        .header-bar { display: flex; justify-content: space-around; background: #2c3e50; color: white; padding: 10px; margin-bottom: 10px; }
-        .main-container { display: flex; gap: 15px; }
-        
-        .left-board { display: grid; grid-template-columns: repeat(5, 40px); background: white; padding: 5px; border-radius: 5px; }
-        .head { font-weight: bold; text-align: center; padding: 5px; }
-        .ball-cell { border: 1px solid #ddd; padding: 8px 0; text-align: center; background: white; }
-        .ball-cell.drawn { background: #4CAF50; color: white; }
-
-        .right-card { background: white; padding: 15px; border-radius: 15px; width: 250px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .current-ball { width: 80px; height: 80px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; margin: 0 auto 20px; }
-        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-        .card-cell { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        .bingo-btn { background: #007bff; color: white; width: 100%; border: none; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+        /* ክፍል 2: የጨዋታ ስታይል */
+        .header-bar { display: flex; justify-content: space-between; background: #2c3e50; color: white; padding: 10px; }
+        .game-container { display: flex; padding: 5px; gap: 5px; height: 80vh; }
+        .left-board { display: grid; grid-template-columns: repeat(5, 1fr); width: 60%; background: white; padding: 2px; }
+        .cell-board { border: 1px solid #ccc; text-align: center; padding: 5px 0; }
+        .cell-board.drawn { background: #4CAF50; color: white; }
+        .right-card { width: 40%; background: white; padding: 5px; display: flex; flex-direction: column; align-items: center; }
+        .ball-display { width: 60px; height: 60px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-bottom: 10px; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -38,62 +34,49 @@
             <div>ጊዜ: <span id="timer">30</span>s</div>
             <div>ሒሳብ: <span id="balance">60.00</span> ETB</div>
         </div>
-        <h2>ካርድዎን ይምረጡ (ከ 2 ቁጥር አይበልጥም)</h2>
+        <h2>ካርድዎን ይምረጡ</h2>
         <div id="bingo-container"></div>
+        <button onclick="startCountdown()" style="width:100%; padding:10px; margin-top:10px;">ጨዋታ ይጀምሩ</button>
     </div>
 
     <!-- ክፍል 2: የጨዋታ በይነገጽ -->
     <div id="game-view" class="hidden">
         <div class="header-bar">
-            <div>DERASH: 1184 ETB</div>
-            <div>BALLS: 1/75</div>
-            <div>PLAYERS: 148</div>
+            <span>DERASH: 1184</span> <span>BALLS: <span id="ball-count">0</span>/75</span>
         </div>
-        <div class="main-container">
-            <div id="left-board" class="left-board">
-                <div class="head" style="color:blue;">B</div><div class="head" style="color:red;">I</div><div class="head" style="color:orange;">N</div><div class="head" style="color:green;">G</div><div class="head" style="color:purple;">O</div>
-            </div>
+        <div class="game-container">
+            <div id="left-board" class="left-board"></div>
             <div class="right-card">
-                <div id="current-ball-display" class="current-ball">I-23</div>
-                <div id="user-card" class="card-grid"></div>
-                <button class="bingo-btn">BINGO!</button>
+                <div id="current-ball" class="ball-display">--</div>
+                <div style="text-align:center;">የእርስዎ ካርድ</div>
             </div>
         </div>
     </div>
 
     <script>
+        // ሎጂክ ክፍል
         let soldCount = 0;
         let timeLeft = 30;
-        let balance = 60.00;
-        const MAX_SELECTION = 2;
+        let drawnNumbers = [];
 
-        // የካርድ መምረጫ (ሎጂክ)
+        // 1. ካርድ መምረጫ
         const container = document.getElementById('bingo-container');
         for (let i = 1; i <= 400; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.innerText = i;
             cell.addEventListener('click', () => {
-                if (cell.classList.contains('sold')) {
-                    cell.classList.remove('sold'); soldCount--; balance += 1.5;
-                } else if (soldCount < MAX_SELECTION) {
-                    cell.classList.add('sold'); soldCount++; balance -= 1.5;
-                } else { alert("ከሁለት ቁጥር በላይ መምረጥ አይችሉም!"); }
+                if(cell.classList.contains('sold')) { cell.classList.remove('sold'); soldCount--; }
+                else if(soldCount < 2) { cell.classList.add('sold'); soldCount++; }
                 document.getElementById('sold-count').innerText = soldCount;
-                document.getElementById('balance').innerText = balance.toFixed(2);
             });
             container.appendChild(cell);
         }
 
-        // የሰከንድ ቆጠራ
+        // 2. ሰከንድ ቆጠራ
         const countdown = setInterval(() => {
-            if (timeLeft > 0) {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-            } else {
-                clearInterval(countdown);
-                startCountdown();
-            }
+            if (timeLeft > 0) { timeLeft--; document.getElementById('timer').innerText = timeLeft; }
+            else { clearInterval(countdown); startCountdown(); }
         }, 1000);
 
         function startCountdown() {
@@ -102,22 +85,27 @@
             setupGameBoard();
         }
 
+        // 3. ጨዋታ እና ራንደም ቁጥር
         function setupGameBoard() {
             const board = document.getElementById('left-board');
             for (let i = 1; i <= 75; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'ball-cell';
-                cell.innerText = i;
-                board.appendChild(cell);
+                const div = document.createElement('div');
+                div.className = 'cell-board';
+                div.id = 'cell-' + i;
+                div.innerText = i;
+                board.appendChild(div);
             }
-            // የተጠቃሚ ካርድ መሙያ (ምሳሌ)
-            const card = document.getElementById('user-card');
-            for(let i=0; i<25; i++) {
-                const c = document.createElement('div');
-                c.className = 'card-cell';
-                c.innerText = i + 1;
-                card.appendChild(c);
-            }
+            // ራንደም ቁጥር ማውጣት
+            setInterval(() => {
+                if (drawnNumbers.length < 75) {
+                    let num;
+                    do { num = Math.floor(Math.random() * 75) + 1; } while (drawnNumbers.includes(num));
+                    drawnNumbers.push(num);
+                    document.getElementById('cell-' + num).classList.add('drawn');
+                    document.getElementById('current-ball').innerText = num;
+                    document.getElementById('ball-count').innerText = drawnNumbers.length;
+                }
+            }, 3000);
         }
     </script>
 </body>
