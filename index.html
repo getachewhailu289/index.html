@@ -3,63 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Game</title>
+    <title>GoodBingo Pro</title>
     <style>
         body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; font-size: 14px; }
-        .game-container { display: flex; padding: 10px; gap: 10px; }
+        .hidden { display: none; }
         
-        /* የግራ ሰሌዳ (75 ቁጥሮች) */
-        .left-board { display: grid; grid-template-columns: repeat(5, 1fr); width: 60%; background: white; padding: 2px; }
+        /* ምርጫ ክፍል */
+        #selection-view { padding: 20px; }
+        #stats-bar { display: flex; justify-content: space-between; padding: 10px; background: #333; color: white; border-radius: 10px; margin-bottom: 20px; }
+        #bingo-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        .cell { padding: 10px; border: 1px solid #ccc; text-align: center; cursor: pointer; background: white; }
+        .cell.sold { background-color: #4CAF50; color: white; }
+
+        /* የጨዋታ ክፍል */
+        .header-bar { display: flex; justify-content: space-between; background: #2c3e50; color: white; padding: 10px; font-weight: bold; }
+        .game-container { display: flex; padding: 10px; gap: 10px; }
+        .left-board { display: grid; grid-template-columns: repeat(5, 1fr); width: 60%; background: white; padding: 2px; height: fit-content; }
         .cell-board { border: 1px solid #ccc; text-align: center; padding: 10px 0; }
         .cell-board.drawn { background: #4CAF50; color: white; }
         
-        /* የቀኝ ካርድ ማሳያ */
-        .right-card { width: 40%; background: white; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .right-card { width: 40%; background: white; padding: 10px; display: flex; flex-direction: column; align-items: center; border-left: 2px solid #ddd; }
         .ball-display { width: 80px; height: 80px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-        .card-grid { display: flex; gap: 5px; margin-top: 10px; }
-        .card-cell { border: 2px solid #ccc; padding: 15px; text-align: center; font-weight: bold; background: #fff59d; }
+        .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; width: 100%; margin-top: 10px; }
+        .card-cell { border: 2px solid #ccc; padding: 15px; text-align: center; font-weight: bold; border-radius: 5px; background: #fff59d; }
     </style>
 </head>
 <body>
 
-    <div class="game-container">
-        <div id="left-board" class="left-board"></div>
-        <div class="right-card">
-            <div id="current-ball" class="ball-display">--</div>
-            <div style="font-weight:bold;">የእርስዎ ካርድ</div>
-            <div id="user-card" class="card-grid"></div>
+    <!-- ክፍል 1: ካርድ መግዣ -->
+    <div id="selection-view">
+        <div id="stats-bar">
+            <div>ባላንስ: <span id="balance">1000.00</span> ETB</div>
+        </div>
+        <h2>ካርዶችን ይምረጡ (አንዱ 10 ብር)</h2>
+        <div id="bingo-container"></div>
+        <button onclick="startGame()" style="width:100%; padding:15px; margin-top:20px; background:#4CAF50; color:white; border:none;">ጨዋታ ጀምር</button>
+    </div>
+
+    <!-- ክፍል 2: የጨዋታ በይነገጽ -->
+    <div id="game-view" class="hidden">
+        <div class="header-bar">
+            <span>DERASH: 1184</span> <span>BALLS: <span id="ball-count">0</span>/75</span>
+        </div>
+        <div class="game-container">
+            <div id="left-board" class="left-board"></div>
+            <div class="right-card">
+                <div id="current-ball" class="ball-display">--</div>
+                <div style="font-weight:bold;">የእርስዎ ካርድ</div>
+                <div id="user-card" class="card-grid"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        // ከ localStorage መረጃውን ማምጣት
+        let balance = parseFloat(localStorage.getItem('userBalance')) || 1000.00;
         let soldNumbers = JSON.parse(localStorage.getItem('soldNumbers')) || [];
         let drawnNumbers = JSON.parse(localStorage.getItem('drawnNumbers')) || [];
+        const CARD_PRICE = 10;
 
-        // የግራ ሰሌዳ መፍጠር
-        const board = document.getElementById('left-board');
-        for (let i = 1; i <= 75; i++) {
-            const div = document.createElement('div');
-            div.className = 'cell-board';
-            div.id = 'cell-' + i;
-            div.innerText = i;
-            if (drawnNumbers.includes(i)) div.classList.add('drawn');
-            board.appendChild(div);
+        // 1. ካርድ መምረጫ
+        const container = document.getElementById('bingo-container');
+        for (let i = 1; i <= 400; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.innerText = i;
+            if(soldNumbers.includes(i)) cell.classList.add('sold');
+            
+            cell.addEventListener('click', () => {
+                if(cell.classList.contains('sold')) {
+                    cell.classList.remove('sold');
+                    soldNumbers = soldNumbers.filter(n => n != i);
+                    balance += CARD_PRICE;
+                } else if(balance >= CARD_PRICE) {
+                    cell.classList.add('sold');
+                    soldNumbers.push(i);
+                    balance -= CARD_PRICE;
+                }
+                document.getElementById('balance').innerText = balance.toFixed(2);
+                localStorage.setItem('soldNumbers', JSON.stringify(soldNumbers));
+                localStorage.setItem('userBalance', balance);
+            });
+            container.appendChild(cell);
         }
 
-        // የገዛነውን ካርድ በቀኝ ማሳየት
-        const card = document.getElementById('user-card');
-        soldNumbers.forEach(n => {
-            const div = document.createElement('div');
-            div.className = 'card-cell';
-            div.innerText = n;
-            card.appendChild(div);
-        });
-
-        // የወጣውን የመጨረሻ ቁጥር ማሳየት
-        if(drawnNumbers.length > 0) {
-            document.getElementById('current-ball').innerText = drawnNumbers[drawnNumbers.length - 1];
+        // 2. ጨዋታ መጀመርያ
+        function startGame() {
+            document.getElementById('selection-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            initGameUI();
         }
+
+        function initGameUI() {
+            const board = document.getElementById('left-board');
+            for (let i = 1; i <= 75; i++) {
+                const div = document.createElement('div');
+                div.className = 'cell-board';
+                div.id = 'cell-' + i;
+                div.innerText = i;
+                if(drawnNumbers.includes(i)) div.classList.add('drawn');
+                board.appendChild(div);
+            }
+
+            const card = document.getElementById('user-card');
+            soldNumbers.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'card-cell';
+                div.innerText = n;
+                card.appendChild(div);
+            });
+
+            if(drawnNumbers.length > 0) document.getElementById('current-ball').innerText = drawnNumbers[drawnNumbers.length-1];
+
+            // ራንደም ቁጥር ጀነሬተር
+            setInterval(() => {
+                if (drawnNumbers.length < 75) {
+                    let num;
+                    do { num = Math.floor(Math.random() * 75) + 1; } while (drawnNumbers.includes(num));
+                    drawnNumbers.push(num);
+                    localStorage.setItem('drawnNumbers', JSON.stringify(drawnNumbers));
+                    document.getElementById('cell-' + num).classList.add('drawn');
+                    document.getElementById('current-ball').innerText = num;
+                    document.getElementById('ball-count').innerText = drawnNumbers.length;
+                }
+            }, 3000);
+        }
+
+        // ገጽ ሲጫን ቀድሞ የተጀመረ ጨዋታ ካለ
+        if(localStorage.getItem('drawnNumbers')) startGame();
     </script>
 </body>
 </html>
