@@ -6,47 +6,81 @@
     <title>GoodBingo Interface</title>
     <style>
         body { margin: 0; font-family: sans-serif; background-color: #eef2f5; padding: 10px; }
+        .hidden { display: none; }
         
-        /* የላይኛው መረጃ (Room, Sold, Time, Balance) */
+        /* ራስጌ (Header) */
         .stats-top { display: flex; gap: 5px; margin-bottom: 15px; }
-        .stat-box { flex: 1; padding: 10px; background: #2c3e50; color: white; border-radius: 8px; text-align: center; font-size: 12px; }
-
-        /* 8 ኮለመን ያለው የቁጥር ሰሌዳ */
-        .grid-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .cell { padding: 12px 5px; border-radius: 5px; background: #f8f9fa; text-align: center; border: 1px solid #ddd; }
-        .cell.active { background: #4CAF50; color: white; }
-
-        /* የታችኛው Slot ክፍል */
-        .slots-container { display: flex; gap: 10px; margin-top: 20px; }
-        .slot { flex: 1; border: 2px dashed #ccc; border-radius: 10px; padding: 20px; text-align: center; background: white; min-height: 100px; }
+        .stat-box { flex: 1; padding: 10px; background: #2c3e50; color: white; border-radius: 8px; text-align: center; font-size: 11px; }
+        
+        /* ሰሌዳ */
+        .grid-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 10px; }
+        .cell { padding: 12px 5px; border-radius: 5px; background: #f8f9fa; text-align: center; border: 1px solid #ddd; cursor: pointer; }
+        .cell.sold { background: #4CAF50; color: white; }
     </style>
 </head>
 <body>
 
-    <div class="stats-top">
-        <div class="stat-box">ROOM<br>VIP 💰💰</div>
-        <div class="stat-box">SOLD<br>128</div>
-        <div class="stat-box">TIME<br>19s</div>
-        <div class="stat-box">BALANCE<br>60.00 ETB</div>
+    <!-- የጨዋታ መግዣ ገጽ -->
+    <div id="shop-view">
+        <div class="stats-top">
+            <div class="stat-box">ROOM<br>VIP</div>
+            <div class="stat-box">SOLD<br><span id="sold-count">0</span></div>
+            <div class="stat-box">TIME<br><span id="timer">19</span>s</div>
+            <div class="stat-box">BALANCE<br><span id="balance">60.00</span> ETB</div>
+        </div>
+        <div id="board" class="grid-board"></div>
     </div>
 
-    <div id="board" class="grid-board"></div>
-
-    <div class="slots-container">
-        <div class="slot" id="slot1">ካርድ 1</div>
-        <div class="slot" id="slot2">SLOT 2<br>EMPTY</div>
+    <!-- የጨዋታ መጫወቻ ገጽ (ሲያልቅ ይታያል) -->
+    <div id="play-view" class="hidden">
+        <h1>ጨዋታው ተጀምሯል!</h1>
     </div>
 
     <script>
+        let balance = 60.00;
+        let sold = 0;
+        let time = 19;
+        const CARD_PRICE = 10;
+
         const board = document.getElementById('board');
-        // 104 ቁጥሮችን በ 8 ኮለመን መፍጠር
+        
+        // 1. ሰሌዳውን መፍጠር
         for (let i = 1; i <= 104; i++) {
             const div = document.createElement('div');
             div.className = 'cell';
             div.innerText = i;
-            if(i === 4 || i === 5 || i === 6 || i === 25) div.classList.add('active');
+            div.onclick = function() {
+                if (!this.classList.contains('sold') && balance >= CARD_PRICE) {
+                    this.classList.add('sold');
+                    sold++;
+                    balance -= CARD_PRICE;
+                    updateUI();
+                } else if (this.classList.contains('sold')) {
+                    this.classList.remove('sold');
+                    sold--;
+                    balance += CARD_PRICE;
+                    updateUI();
+                }
+            };
             board.appendChild(div);
         }
+
+        function updateUI() {
+            document.getElementById('sold-count').innerText = sold;
+            document.getElementById('balance').innerText = balance.toFixed(2);
+        }
+
+        // 2. ሰዓት ቆጠራ
+        const countdown = setInterval(() => {
+            time--;
+            document.getElementById('timer').innerText = time;
+            if (time <= 0) {
+                clearInterval(countdown);
+                // ወደ ጨዋታ በይነገጽ መቀየር
+                document.getElementById('shop-view').classList.add('hidden');
+                document.getElementById('play-view').classList.remove('hidden');
+            }
+        }, 1000);
     </script>
 </body>
 </html>
