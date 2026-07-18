@@ -3,133 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Pro</title>
+    <title>GoodBingo Interface</title>
     <style>
-        body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; font-size: 14px; }
-        .hidden { display: none; }
+        body { margin: 0; font-family: sans-serif; background-color: #eef2f5; padding: 10px; }
         
-        /* ምርጫ ክፍል */
-        #selection-view { padding: 20px; }
-        #stats-bar { display: flex; justify-content: space-between; padding: 10px; background: #333; color: white; border-radius: 10px; margin-bottom: 20px; }
-        #bingo-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-        .cell { padding: 10px; border: 1px solid #ccc; text-align: center; cursor: pointer; background: white; }
-        .cell.sold { background-color: #4CAF50; color: white; }
+        /* የላይኛው መረጃ (Room, Sold, Time, Balance) */
+        .stats-top { display: flex; gap: 5px; margin-bottom: 15px; }
+        .stat-box { flex: 1; padding: 10px; background: #2c3e50; color: white; border-radius: 8px; text-align: center; font-size: 12px; }
 
-        /* የጨዋታ ክፍል */
-        .header-bar { display: flex; justify-content: space-between; background: #2c3e50; color: white; padding: 10px; font-weight: bold; }
-        .game-container { display: flex; padding: 10px; gap: 10px; }
-        .left-board { display: grid; grid-template-columns: repeat(5, 1fr); width: 60%; background: white; padding: 2px; height: fit-content; }
-        .cell-board { border: 1px solid #ccc; text-align: center; padding: 10px 0; }
-        .cell-board.drawn { background: #4CAF50; color: white; }
-        
-        .right-card { width: 40%; background: white; padding: 10px; display: flex; flex-direction: column; align-items: center; border-left: 2px solid #ddd; }
-        .ball-display { width: 80px; height: 80px; background: red; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-        .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; width: 100%; margin-top: 10px; }
-        .card-cell { border: 2px solid #ccc; padding: 15px; text-align: center; font-weight: bold; border-radius: 5px; background: #fff59d; }
+        /* 8 ኮለመን ያለው የቁጥር ሰሌዳ */
+        .grid-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .cell { padding: 12px 5px; border-radius: 5px; background: #f8f9fa; text-align: center; border: 1px solid #ddd; }
+        .cell.active { background: #4CAF50; color: white; }
+
+        /* የታችኛው Slot ክፍል */
+        .slots-container { display: flex; gap: 10px; margin-top: 20px; }
+        .slot { flex: 1; border: 2px dashed #ccc; border-radius: 10px; padding: 20px; text-align: center; background: white; min-height: 100px; }
     </style>
 </head>
 <body>
 
-    <!-- ክፍል 1: ካርድ መግዣ -->
-    <div id="selection-view">
-        <div id="stats-bar">
-            <div>ባላንስ: <span id="balance">1000.00</span> ETB</div>
-        </div>
-        <h2>ካርዶችን ይምረጡ (አንዱ 10 ብር)</h2>
-        <div id="bingo-container"></div>
-        <button onclick="startGame()" style="width:100%; padding:15px; margin-top:20px; background:#4CAF50; color:white; border:none;">ጨዋታ ጀምር</button>
+    <div class="stats-top">
+        <div class="stat-box">ROOM<br>VIP 💰💰</div>
+        <div class="stat-box">SOLD<br>128</div>
+        <div class="stat-box">TIME<br>19s</div>
+        <div class="stat-box">BALANCE<br>60.00 ETB</div>
     </div>
 
-    <!-- ክፍል 2: የጨዋታ በይነገጽ -->
-    <div id="game-view" class="hidden">
-        <div class="header-bar">
-            <span>DERASH: 1184</span> <span>BALLS: <span id="ball-count">0</span>/75</span>
-        </div>
-        <div class="game-container">
-            <div id="left-board" class="left-board"></div>
-            <div class="right-card">
-                <div id="current-ball" class="ball-display">--</div>
-                <div style="font-weight:bold;">የእርስዎ ካርድ</div>
-                <div id="user-card" class="card-grid"></div>
-            </div>
-        </div>
+    <div id="board" class="grid-board"></div>
+
+    <div class="slots-container">
+        <div class="slot" id="slot1">ካርድ 1</div>
+        <div class="slot" id="slot2">SLOT 2<br>EMPTY</div>
     </div>
 
     <script>
-        let balance = parseFloat(localStorage.getItem('userBalance')) || 1000.00;
-        let soldNumbers = JSON.parse(localStorage.getItem('soldNumbers')) || [];
-        let drawnNumbers = JSON.parse(localStorage.getItem('drawnNumbers')) || [];
-        const CARD_PRICE = 10;
-
-        // 1. ካርድ መምረጫ
-        const container = document.getElementById('bingo-container');
-        for (let i = 1; i <= 400; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.innerText = i;
-            if(soldNumbers.includes(i)) cell.classList.add('sold');
-            
-            cell.addEventListener('click', () => {
-                if(cell.classList.contains('sold')) {
-                    cell.classList.remove('sold');
-                    soldNumbers = soldNumbers.filter(n => n != i);
-                    balance += CARD_PRICE;
-                } else if(balance >= CARD_PRICE) {
-                    cell.classList.add('sold');
-                    soldNumbers.push(i);
-                    balance -= CARD_PRICE;
-                }
-                document.getElementById('balance').innerText = balance.toFixed(2);
-                localStorage.setItem('soldNumbers', JSON.stringify(soldNumbers));
-                localStorage.setItem('userBalance', balance);
-            });
-            container.appendChild(cell);
+        const board = document.getElementById('board');
+        // 104 ቁጥሮችን በ 8 ኮለመን መፍጠር
+        for (let i = 1; i <= 104; i++) {
+            const div = document.createElement('div');
+            div.className = 'cell';
+            div.innerText = i;
+            if(i === 4 || i === 5 || i === 6 || i === 25) div.classList.add('active');
+            board.appendChild(div);
         }
-
-        // 2. ጨዋታ መጀመርያ
-        function startGame() {
-            document.getElementById('selection-view').classList.add('hidden');
-            document.getElementById('game-view').classList.remove('hidden');
-            initGameUI();
-        }
-
-        function initGameUI() {
-            const board = document.getElementById('left-board');
-            for (let i = 1; i <= 75; i++) {
-                const div = document.createElement('div');
-                div.className = 'cell-board';
-                div.id = 'cell-' + i;
-                div.innerText = i;
-                if(drawnNumbers.includes(i)) div.classList.add('drawn');
-                board.appendChild(div);
-            }
-
-            const card = document.getElementById('user-card');
-            soldNumbers.forEach(n => {
-                const div = document.createElement('div');
-                div.className = 'card-cell';
-                div.innerText = n;
-                card.appendChild(div);
-            });
-
-            if(drawnNumbers.length > 0) document.getElementById('current-ball').innerText = drawnNumbers[drawnNumbers.length-1];
-
-            // ራንደም ቁጥር ጀነሬተር
-            setInterval(() => {
-                if (drawnNumbers.length < 75) {
-                    let num;
-                    do { num = Math.floor(Math.random() * 75) + 1; } while (drawnNumbers.includes(num));
-                    drawnNumbers.push(num);
-                    localStorage.setItem('drawnNumbers', JSON.stringify(drawnNumbers));
-                    document.getElementById('cell-' + num).classList.add('drawn');
-                    document.getElementById('current-ball').innerText = num;
-                    document.getElementById('ball-count').innerText = drawnNumbers.length;
-                }
-            }, 3000);
-        }
-
-        // ገጽ ሲጫን ቀድሞ የተጀመረ ጨዋታ ካለ
-        if(localStorage.getItem('drawnNumbers')) startGame();
     </script>
 </body>
 </html>
