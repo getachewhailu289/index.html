@@ -6,33 +6,37 @@
     <title>GoodBingo Pro</title>
     <style>
         body { font-family: sans-serif; background: #eef2f5; padding: 10px; }
-        .hidden { display: none; }
         .grid-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
         .cell { padding: 10px; background: white; border: 1px solid #ccc; text-align: center; cursor: pointer; border-radius: 4px; }
-        .cell.sold { background: #4CAF50; color: white; border-color: #2e7d32; }
+        .cell.sold { background: #4CAF50; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="shop-view">
-        <div style="display: flex; gap: 5px; background: #2c3e50; color: white; padding: 10px; border-radius: 8px;">
-            <div style="flex:1">ባላንስ: <span id="balance">1000.00</span></div>
-            <div style="flex:1">ሰዓት: <span id="timer">30</span>s</div>
-            <div style="flex:1">SOLD: <span id="sold-count">0</span></div>
-        </div>
-        <h3>ካርዶችን ይምረጡ</h3>
-        <div id="cards-grid" class="grid-container"></div>
+    <div style="display: flex; gap: 5px; background: #2c3e50; color: white; padding: 10px; border-radius: 8px;">
+        <div style="flex:1">ባላንስ: <span id="balance">1000.00</span></div>
+        <div style="flex:1">ሰዓት: <span id="timer">30</span>s</div>
+        <div style="flex:1">SOLD: <span id="sold-count">0</span></div>
     </div>
+    <h3>ካርዶችን ይምረጡ</h3>
+    <div id="cards-grid" class="grid-container"></div>
 
     <script>
-        // ከ localStorage መረጃን መመለስ
+        // 1. መረጃውን ከ localStorage በማምጣት ላይ
         let balance = parseFloat(localStorage.getItem('balance')) || 1000.00;
         let selectedCards = JSON.parse(localStorage.getItem('selectedCards')) || [];
-        let time = parseInt(localStorage.getItem('timer')) || 30;
+        
+        // ሰዓቱን በትክክል ለማስቀጠል (Timestamp)
+        let endTime = localStorage.getItem('endTime');
+        if (!endTime) {
+            endTime = Date.now() + 30000; // 30 ሰከንድ ይጨምራል
+            localStorage.setItem('endTime', endTime);
+        }
 
         document.getElementById('balance').innerText = balance.toFixed(2);
         document.getElementById('sold-count').innerText = selectedCards.length;
 
+        // 2. ሰሌዳውን መሳል
         const grid = document.getElementById('cards-grid');
         for (let i = 1; i <= 400; i++) {
             const div = document.createElement('div');
@@ -50,26 +54,25 @@
                     selectedCards.push(i);
                     balance -= 10;
                 }
-                saveAndRefresh();
+                localStorage.setItem('balance', balance);
+                localStorage.setItem('selectedCards', JSON.stringify(selectedCards));
+                document.getElementById('balance').innerText = balance.toFixed(2);
+                document.getElementById('sold-count').innerText = selectedCards.length;
             };
             grid.appendChild(div);
         }
 
-        function saveAndRefresh() {
-            localStorage.setItem('balance', balance);
-            localStorage.setItem('selectedCards', JSON.stringify(selectedCards));
-            document.getElementById('balance').innerText = balance.toFixed(2);
-            document.getElementById('sold-count').innerText = selectedCards.length;
-        }
-
-        const timerInterval = setInterval(() => {
-            time--;
-            document.getElementById('timer').innerText = time;
-            localStorage.setItem('timer', time);
-            if (time <= 0) {
-                clearInterval(timerInterval);
+        // 3. የሰዓት ቆጠራ በ Timestamp ላይ የተመሰረተ
+        const timerElement = document.getElementById('timer');
+        const countdown = setInterval(() => {
+            let remaining = Math.round((endTime - Date.now()) / 1000);
+            if (remaining <= 0) {
+                clearInterval(countdown);
+                timerElement.innerText = "0";
                 alert("ጨዋታው ተጀምሯል!");
-                localStorage.clear(); // ጨዋታ ሲጀመር መረጃውን ማጽዳት
+                localStorage.clear();
+            } else {
+                timerElement.innerText = remaining;
             }
         }, 1000);
     </script>
