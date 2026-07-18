@@ -26,10 +26,10 @@
         let balance = parseFloat(localStorage.getItem('balance')) || 1000.00;
         let selectedCards = JSON.parse(localStorage.getItem('selectedCards')) || [];
         
-        // ሰዓቱን በትክክል ለማስቀጠል (Timestamp)
+        // **አስፈላጊ ማስተካከያ**: endTime በ localStorage ካለ አይቀይረው
         let endTime = localStorage.getItem('endTime');
         if (!endTime) {
-            endTime = Date.now() + 30000; // 30 ሰከንድ ይጨምራል
+            endTime = Date.now() + 30000; // ገና ካልጀመረ 30 ሰከንድ ይጨምራል
             localStorage.setItem('endTime', endTime);
         }
 
@@ -62,15 +62,17 @@
             grid.appendChild(div);
         }
 
-        // 3. የሰዓት ቆጠራ በ Timestamp ላይ የተመሰረተ
+        // 3. የሰዓት ቆጠራ
         const timerElement = document.getElementById('timer');
         const countdown = setInterval(() => {
-            let remaining = Math.round((endTime - Date.now()) / 1000);
+            let remaining = Math.round((parseInt(endTime) - Date.now()) / 1000);
+            
             if (remaining <= 0) {
                 clearInterval(countdown);
                 timerElement.innerText = "0";
-                alert("ጨዋታው ተጀምሯል!");
-                localStorage.clear();
+                // ጊዜው ሲያልቅ የነበረውን መረጃ ያጽዳ
+                localStorage.clear(); 
+                alert("ጊዜው አልቋል!");
             } else {
                 timerElement.innerText = remaining;
             }
