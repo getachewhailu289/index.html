@@ -7,8 +7,8 @@
         body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
         .hidden { display: none; }
         
-        /* ምርጫ */
-        #bingo-container { display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; }
+        /* ምርጫ: 8 ኮለመን እንዲሆን ተቀይሯል */
+        #bingo-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
         .cell { padding: 5px; border: 1px solid #ccc; text-align: center; cursor: pointer; background: white; }
         .cell.sold { background-color: #4CAF50; color: white; }
 
@@ -53,7 +53,7 @@
     </div>
 
     <script>
-        // 1. መጀመሪያ ክፍል: ካርድ መግዣ
+        // 1. መጀመሪያ ክፍል: ካርድ መግዣ (8 ኮለመን)
         const container = document.getElementById('bingo-container');
         for (let i = 1; i <= 400; i++) {
             const cell = document.createElement('div');
