@@ -3,79 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Pro</title>
+    <title>GoodBingo Mini App</title>
+    <!-- የቴሌግራም ዌብ አፕ ስክሪፕት -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #eef2f5; padding: 10px; }
-        .grid-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
-        .cell { padding: 10px; background: white; border: 1px solid #ccc; text-align: center; cursor: pointer; border-radius: 4px; }
-        .cell.sold { background: #4CAF50; color: white; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f5f7;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+        }
+        .badge {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #fff;
+        }
+        .room-vip { background-color: #f1c40f; color: #000; }
+        .sold { background-color: #34495e; }
+        .time { background-color: #2c3e50; }
+        .balance { background-color: #27ae60; }
+
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        .cell {
+            background-color: #ecf0f1;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 6px;
+            color: #2c3e50;
+        }
+        .slots-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .slot {
+            flex: 1;
+            border: 2px dashed #bdc3c7;
+            height: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
-    <div style="display: flex; gap: 5px; background: #2c3e50; color: white; padding: 10px; border-radius: 8px;">
-        <div style="flex:1">ባላንስ: <span id="balance">1000.00</span></div>
-        <div style="flex:1">ሰዓት: <span id="timer">30</span>s</div>
-        <div style="flex:1">SOLD: <span id="sold-count">0</span></div>
+    <div class="header">
+        <div class="badge room-vip">VIP 💰</div>
+        <div class="badge sold">SOLD 342</div>
+        <div class="badge time" id="timer">1s</div>
+        <div class="badge balance">0.00 ETB</div>
     </div>
-    <h3>ካርዶችን ይምረጡ</h3>
-    <div id="cards-grid" class="grid-container"></div>
+
+    <!-- 5x5 የቁጥር ሰሌዳ -->
+    <div class="bingo-grid" id="bingoGrid">
+        <!-- በጃቫስክሪፕት ቁጥሮች ይሞላሉ -->
+    </div>
+
+    <!-- ባዶ ስሎቶች (Slot 1 & Slot 2) -->
+    <div class="slots-container">
+        <div class="slot">
+            <span>+</span>
+            <span>SLOT 1 EMPTY</span>
+        </div>
+        <div class="slot">
+            <span>+</span>
+            <span>SLOT 2 EMPTY</span>
+        </div>
+    </div>
 
     <script>
-        // 1. መረጃውን ከ localStorage በማምጣት ላይ
-        let balance = parseFloat(localStorage.getItem('balance')) || 1000.00;
-        let selectedCards = JSON.parse(localStorage.getItem('selectedCards')) || [];
-        
-        // **አስፈላጊ ማስተካከያ**: endTime በ localStorage ካለ አይቀይረው
-        let endTime = localStorage.getItem('endTime');
-        if (!endTime) {
-            endTime = Date.now() + 30000; // ገና ካልጀመረ 30 ሰከንድ ይጨምራል
-            localStorage.setItem('endTime', endTime);
+        // ቴሌግራም ዌብ አፕ ማስጀመር
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // 5x5 ሰሌዳውን በቁጥሮች መሙላት
+        const grid = document.getElementById('bingoGrid');
+        for (let i = 1; i <= 25; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.innerText = Math.floor(Math.random() * 75) + 1;
+            grid.appendChild(cell);
         }
 
-        document.getElementById('balance').innerText = balance.toFixed(2);
-        document.getElementById('sold-count').innerText = selectedCards.length;
-
-        // 2. ሰሌዳውን መሳል
-        const grid = document.getElementById('cards-grid');
-        for (let i = 1; i <= 400; i++) {
-            const div = document.createElement('div');
-            div.className = 'cell';
-            div.innerText = i;
-            if(selectedCards.includes(i)) div.classList.add('sold');
-
-            div.onclick = function() {
-                if (div.classList.contains('sold')) {
-                    div.classList.remove('sold');
-                    selectedCards = selectedCards.filter(id => id !== i);
-                    balance += 10;
-                } else if (selectedCards.length < 2 && balance >= 10) {
-                    div.classList.add('sold');
-                    selectedCards.push(i);
-                    balance -= 10;
-                }
-                localStorage.setItem('balance', balance);
-                localStorage.setItem('selectedCards', JSON.stringify(selectedCards));
-                document.getElementById('balance').innerText = balance.toFixed(2);
-                document.getElementById('sold-count').innerText = selectedCards.length;
-            };
-            grid.appendChild(div);
-        }
-
-        // 3. የሰዓት ቆጠራ
-        const timerElement = document.getElementById('timer');
-        const countdown = setInterval(() => {
-            let remaining = Math.round((parseInt(endTime) - Date.now()) / 1000);
-            
-            if (remaining <= 0) {
-                clearInterval(countdown);
-                timerElement.innerText = "0";
-                // ጊዜው ሲያልቅ የነበረውን መረጃ ያጽዳ
-                localStorage.clear(); 
-                alert("ጊዜው አልቋል!");
-            } else {
-                timerElement.innerText = remaining;
-            }
+        // የሰዓት ቆጣሪ (Timer) ምሳሌ
+        let timeLeft = 60;
+        setInterval(() => {
+            if(timeLeft > 0) timeLeft--;
+            document.getElementById('timer').innerText = timeLeft + 's';
         }, 1000);
     </script>
 </body>
