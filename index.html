@@ -848,12 +848,11 @@
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
-            // የቁጥር ጥሪ ጊዜ 6 ሰኮንድ
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
-                    showNotification('ጨዋታው አልቋል! ወደ መጀመሪያው ገጽ ይመለሳሉ...');
-                    setTimeout(() => resetGameLoop(), 3000);
+                    showNotification('ጨዋታው አልቋል! ወደ ካርቴላ መምረጫ ገጽ ይመለሳሉ...');
+                    setTimeout(() => resetGameLoop(), 2500);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
@@ -950,10 +949,9 @@
 
             if (ballInterval) clearInterval(ballInterval);
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆`);
-            setTimeout(() => resetGameLoop(), 3500);
+            setTimeout(() => resetGameLoop(), 2500);
         }
 
-        // ጨዋታው ሲያልቅ ወይም አሸናፊ ሲኖር ውሂቡን አጽድቆ ወደ መጀመሪያው ገጽ (ካርቴላ መምረጫ) ይመልሰዋል
         function resetGameLoop() {
             if (ballInterval) clearInterval(ballInterval);
             localStorage.removeItem('y_gameStarted');
