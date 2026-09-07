@@ -305,36 +305,8 @@
             padding: 10px;
             background: #d8dbe2;
             border-radius: 12px;
-            gap: 15px;
+            gap: 10px;
             overflow-y: auto;
-        }
-
-        .progress-box {
-            background: #ffffff;
-            padding: 15px;
-            border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            font-size: 24px;
-            margin-top: 10px;
-        }
-
-        .progress-text-container {
-            text-align: center;
-        }
-
-        .progress-title {
-            font-size: 13px;
-            font-weight: 800;
-            font-style: italic;
-            color: #1a202c;
-            letter-spacing: 0.5px;
-        }
-
-        .progress-desc {
-            font-size: 10px;
-            color: #718096;
-            margin-top: 4px;
-            font-weight: 600;
         }
 
         .active-user-cards {
@@ -384,6 +356,20 @@
             background: #48bb78 !important;
             color: #ffffff !important;
             border-color: #38a169;
+        }
+
+        .bingo-btn {
+            width: 100%;
+            background: #00c853;
+            color: #ffffff;
+            border: none;
+            padding: 6px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 800;
+            margin-top: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
         }
 
         /* Custom Notification Toast */
@@ -469,7 +455,7 @@
             </div>
         </div>
 
-        <!-- ================= PAGE 2: GAME PLAY / PROGRESS PAGE ================= -->
+        <!-- ================= PAGE 2: GAME PLAY PAGE ================= -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -483,12 +469,13 @@
             </div>
 
             <div class="game-header-stats">
-                <div>DERASH <span id="derash-val">928 ETB</span></div>
+                <div>ደራሽ <span id="derash-val">0 ETB</span></div>
                 <div>BALLS <span id="balls-val">0/75</span></div>
-                <div>PLAYERS <span id="players-val">116</span></div>
+                <div>PLAYERS <span id="players-val">0</span></div>
             </div>
 
             <div class="game-body">
+                <!-- Left: 1 to 75 table -->
                 <div class="balls-table-container">
                     <div class="bingo-header-row">
                         <div class="bh-b">B</div>
@@ -500,13 +487,8 @@
                     <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
                 </div>
 
+                <!-- Right: Slot 1 & Slot 2 only -->
                 <div class="game-main-area">
-                    <div class="progress-box">⏳</div>
-                    <div class="progress-text-container">
-                        <div class="progress-title">GAME IN PROGRESS</div>
-                        <div class="progress-desc">PLEASE WAIT FOR THE NEXT BUYING ROUND TO JOIN.</div>
-                    </div>
-
                     <div class="active-user-cards" id="activeUserCardsContainer"></div>
                 </div>
             </div>
@@ -655,10 +637,17 @@
             updateDisplay();
         }
 
+        // Switch to Game Play Page logic & Start Random Ball Drawing
+        let calledBalls = [];
         function switchToGamePage() {
             document.getElementById('page-buy').classList.remove('active');
             document.getElementById('page-game').classList.add('active');
 
+            // Set Derash (soldCount * 8) and Players (soldCount)
+            document.getElementById('derash-val').innerText = (soldCount * 8) + ' ETB';
+            document.getElementById('players-val').innerText = soldCount;
+
+            // Build 1 to 75 table
             const bGrid = document.getElementById('ballsGrid1To75');
             bGrid.innerHTML = '';
             for (let i = 1; i <= 75; i++) {
@@ -669,11 +658,12 @@
                 bGrid.appendChild(bCell);
             }
 
+            // Build user selected cards in game view (Slot 1 & Slot 2) with BINGO button
             const userCardsContainer = document.getElementById('activeUserCardsContainer');
             userCardsContainer.innerHTML = '';
 
             if (selectedCards.length === 0) {
-                userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 10px;">ካርድ አልመረጡም</div>`;
+                userCardsContainer.innerHTML = `<div style="font-size: 11px; color: #718096; text-align: center; padding: 20px;">ካርድ አልመረጡም</div>`;
             } else {
                 selectedCards.forEach((cardNum, idx) => {
                     const cardBox = document.createElement('div');
@@ -687,15 +677,38 @@
                             cardHtml += `<div class="um-cell" onclick="toggleMarkCell(this)">${val}</div>`;
                         }
                     }
-                    cardHtml += `</div>`;
+                    cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
                     cardBox.innerHTML = cardHtml;
                     userCardsContainer.appendChild(cardBox);
                 });
             }
+
+            // Start Random Ball Generator every 2 seconds
+            let availableBalls = Array.from({length: 75}, (_, i) => i + 1);
+            let ballInterval = setInterval(() => {
+                if (availableBalls.length === 0) {
+                    clearInterval(ballInterval);
+                    return;
+                }
+                let randomIndex = Math.floor(Math.random() * availableBalls.length);
+                let drawnBall = availableBalls.splice(randomIndex, 1)[0];
+                calledBalls.push(drawnBall);
+
+                // Highlight on 1-75 grid
+                const targetCell = document.getElementById(`ball-num-${drawnBall}`);
+                if (targetCell) targetCell.classList.add('called');
+
+                // Update Balls count display
+                document.getElementById('balls-val').innerText = calledBalls.length + '/75';
+            }, 2000);
         }
 
         function toggleMarkCell(cell) {
             cell.classList.toggle('marked');
+        }
+
+        function checkBingo(cardNum) {
+            showNotification(`ካርድ #${cardNum} ቢንጎ ተረጋግጧል! 🏆`);
         }
     </script>
 </body>
