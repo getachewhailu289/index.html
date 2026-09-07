@@ -177,7 +177,7 @@
         .slot-box {
             border: 2px dashed #cbd5e0;
             border-radius: 10px;
-            padding: 8px;
+            padding: 6px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -195,28 +195,55 @@
         }
 
         .slot-icon { font-size: 20px; color: #a0aec0; margin-bottom: 2px; }
-        .slot-text { font-size: 9px; font-weight: 700; color: #718096; text-align: center; text-transform: uppercase; margin-bottom: 4px; }
+        .slot-text { font-size: 8px; font-weight: 700; color: #718096; text-align: center; text-transform: uppercase; margin-bottom: 3px; }
+
+        .mini-matrix-wrapper {
+            width: 100%;
+            max-width: 125px;
+        }
+
+        .mini-matrix-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1px;
+            margin-bottom: 1px;
+            text-align: center;
+            font-weight: 900;
+            font-size: 8px;
+            color: #ffffff;
+        }
+
+        .mmh-b { background: #2196f3; border-radius: 1px; }
+        .mmh-i { background: #f44336; border-radius: 1px; }
+        .mmh-n { background: #ff9800; border-radius: 1px; }
+        .mmh-g { background: #4caf50; border-radius: 1px; }
+        .mmh-o { background: #9c27b0; border-radius: 1px; }
 
         .mini-matrix {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
+            gap: 1px;
             width: 100%;
-            max-width: 120px;
         }
 
         .matrix-cell {
             background: #ffffff;
             color: #1a202c;
-            font-size: 8px;
+            font-size: 7px;
             font-weight: 700;
             text-align: center;
             aspect-ratio: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 2px;
+            border-radius: 1px;
             border: 1px solid #cbd5e0;
+        }
+
+        .matrix-cell.free-cell {
+            background: #ecc94b;
+            color: #744210;
+            font-size: 5px;
         }
 
         /* PAGE 2 STYLES (Game Play Screen) */
@@ -399,6 +426,13 @@
             border-color: #38a169;
         }
 
+        .um-cell.free-cell {
+            background: #ecc94b !important;
+            color: #744210 !important;
+            font-size: 6px;
+            font-weight: 900;
+        }
+
         .bingo-btn {
             width: 100%;
             background: #00c853;
@@ -443,6 +477,7 @@
 
     <div class="container">
         
+        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
@@ -494,6 +529,7 @@
             </div>
         </div>
 
+        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -521,6 +557,7 @@
                         <div class="bh-g">G</div>
                         <div class="bh-o">O</div>
                     </div>
+                    <!-- BINGO Columns Container (1-15, 16-30, 31-45, 46-60, 61-75) -->
                     <div class="balls-grid-1-75" id="ballsGrid1To75" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px;"></div>
                 </div>
 
@@ -571,12 +608,17 @@
                 for (let r = 0; r < 5; r++) {
                     let row = [];
                     for (let c = 0; c < 5; c++) {
-                        let randNum;
-                        do {
-                            randNum = generateColumnNumber(c);
-                        } while (colUsed[c].has(randNum));
-                        colUsed[c].add(randNum);
-                        row.push(randNum);
+                        // መሀከል (ረድፍ 2፣ አምድ 2) ላይ FREE እንዲሆን
+                        if (r === 2 && c === 2) {
+                            row.push('FREE');
+                        } else {
+                            let randNum;
+                            do {
+                                randNum = generateColumnNumber(c);
+                            } while (colUsed[c].has(randNum));
+                            colUsed[c].add(randNum);
+                            row.push(randNum);
+                        }
                     }
                     matrix.push(row);
                 }
@@ -678,14 +720,29 @@
             if (!box) return;
             if (cardNum !== undefined) {
                 box.classList.add('filled');
-                let matrixHtml = `<div class="slot-text">SLOT ${slotNum} (CARD #${cardNum})</div><div class="mini-matrix">`;
+                let matrixHtml = `<div class="slot-text">SLOT ${slotNum} (CARD #${cardNum})</div>`;
+                matrixHtml += `<div class="mini-matrix-wrapper">`;
+                // የ BINGO ፊደላት ከቁጥሮቹ ትክክለኛ አናት ላይ
+                matrixHtml += `<div class="mini-matrix-header">
+                    <div class="mmh-b">B</div>
+                    <div class="mmh-i">I</div>
+                    <div class="mmh-n">N</div>
+                    <div class="mmh-g">G</div>
+                    <div class="mmh-o">O</div>
+                </div>`;
+                matrixHtml += `<div class="mini-matrix">`;
                 const matrix = cardMatrices[cardNum];
                 for (let r = 0; r < 5; r++) {
                     for (let c = 0; c < 5; c++) {
-                        matrixHtml += `<div class="matrix-cell">${matrix[r][c]}</div>`;
+                        let val = matrix[r][c];
+                        if (val === 'FREE') {
+                            matrixHtml += `<div class="matrix-cell free-cell">FREE</div>`;
+                        } else {
+                            matrixHtml += `<div class="matrix-cell">${val}</div>`;
+                        }
                     }
                 }
-                matrixHtml += `</div>`;
+                matrixHtml += `</div></div>`;
                 box.innerHTML = matrixHtml;
             } else {
                 box.classList.remove('filled');
@@ -733,7 +790,6 @@
             if (derashVal) derashVal.innerText = (soldCount * 8) + ' ETB';
             if (playersVal) playersVal.innerText = soldCount;
 
-            // Render 1-75 table grouped by BINGO ranges (Columns: 1-15, 16-30, 31-45, 46-60, 61-75)
             const bGrid = document.getElementById('ballsGrid1To75');
             if (bGrid) {
                 bGrid.innerHTML = '';
@@ -781,7 +837,11 @@
                         for (let r = 0; r < 5; r++) {
                             for (let c = 0; c < 5; c++) {
                                 let val = matrix[r][c];
-                                cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
+                                if (val === 'FREE') {
+                                    cardHtml += `<div class="um-cell free-cell marked" data-val="FREE">FREE</div>`;
+                                } else {
+                                    cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
+                                }
                             }
                         }
                         cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
@@ -793,7 +853,7 @@
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
-            // 4 ሰኮንድ ልዩነት ያለው የቁጥር ጥሪ ሉፕ (Routine)
+            // የቁጥር ጥሪ ጊዜ ወደ 6 ሰኮንድ ከፍ ብሏል
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
@@ -812,7 +872,7 @@
                 updateRecentTags();
                 const bVal = document.getElementById('balls-val');
                 if (bVal) bVal.innerText = calledBalls.length + '/75';
-            }, 4000);
+            }, 6000);
         }
 
         function updateRecentTags() {
@@ -836,6 +896,7 @@
             cell.classList.toggle('marked');
         }
 
+        // BINGO ማረጋገጫ ከቁጥር ጥሪ ዝርዝር (calledBalls) ጋር ማወዳደር
         function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
@@ -844,9 +905,10 @@
             let row = [];
             
             cells.forEach((cell, index) => {
+                let val = cell.dataset.val;
                 row.push({
                     marked: cell.classList.contains('marked'),
-                    value: parseInt(cell.dataset.val)
+                    value: val === 'FREE' ? 'FREE' : parseInt(val)
                 });
                 if ((index + 1) % 5 === 0) {
                     grid.push(row);
@@ -854,29 +916,56 @@
                 }
             });
 
-            let isWinner = false;
+            // 1. የተመረጠው መስመር (አግድም፣ ቁመት ወይም ሰያፍ) ሙሉ በሙሉ መሟላቱን እና የተመረጡት ቁጥሮች በድምፅ ጥሪ (calledBalls) ውስጥ መኖራቸውን ማረጋገጥ
+            let winningLines = [];
 
+            // አግድም መስመሮች
             for (let r = 0; r < 5; r++) {
-                if (grid[r].every(cell => cell.marked)) isWinner = true;
+                if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
-
+            // ቁመት መስመሮች
             for (let c = 0; c < 5; c++) {
-                if (grid.every(row => row[c].marked)) isWinner = true;
+                if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
             }
+            // ሰያፍ 1
+            if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
+            // ሰያፍ 2
+            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
-            if ([0,1,2,3,4].every(i => grid[i][i].marked)) isWinner = true;
-            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) isWinner = true;
-
-            if (isWinner) {
-                if (ballInterval) clearInterval(ballInterval);
-                showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ቢንጎ አሸንፏል! 🏆`);
-                setTimeout(() => resetGameLoop(), 3500);
-            } else {
+            if (winningLines.length === 0) {
                 showNotification(`❌ ካርድ #${cardNum}: አግድም፣ ቁመት ወይም ሰያፍ መስመር ሙሉ በሙሉ አልተሟላም!`);
+                return;
             }
+
+            // 2. ተጫዋቹ የመረጣቸው ቁጥሮች በእርግጥ ተጠርተዋል ወይስ አልተጠሩም? የሚለውን መመርመር
+            let uncalledNumbers = [];
+            winningLines.forEach(line => {
+                let lineCells = [];
+                if (line.type === 'row') lineCells = grid[line.index];
+                else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
+                else if (line.type === 'diag1') lineCells = [grid[0][0], grid[1][1], grid[2][2], grid[3][3], grid[4][4]];
+                else if (line.type === 'diag2') lineCells = [grid[0][4], grid[1][3], grid[2][2], grid[3][1], grid[4][0]];
+
+                lineCells.forEach(cell => {
+                    if (cell.value !== 'FREE' && !calledBalls.includes(cell.value)) {
+                        if (!uncalledNumbers.includes(cell.value)) {
+                            uncalledNumbers.push(cell.value);
+                        }
+                    }
+                });
+            });
+
+            if (uncalledNumbers.length > 0) {
+                showNotification(`⚠️ የተሳሳተ ቢንጎ! ቁጥር ${uncalledNumbers.join(', ')} እስካሁን አልተጠራም!`);
+                return;
+            }
+
+            // ሁሉንም መስፈርቶች ካሟላ አሸናፊ ይሆናል
+            if (ballInterval) clearInterval(ballInterval);
+            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆`);
+            setTimeout(() => resetGameLoop(), 3500);
         }
 
-        // ሙሉ ሉፕ (Routine) - ጨዋታ ሲያልቅ ወይም አሸናፊ ሲኖር ወደ መጀመሪያው ገጽ የመመለሻ ተግባር
         function resetGameLoop() {
             if (ballInterval) clearInterval(ballInterval);
             localStorage.removeItem('y_gameStarted');
