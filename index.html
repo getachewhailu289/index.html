@@ -243,7 +243,7 @@
         .matrix-cell.free-cell {
             background: #ecc94b;
             color: #744210;
-            font-size: 5px;
+            font-size: 7px;
         }
 
         /* PAGE 2 STYLES (Game Play Screen) */
@@ -429,22 +429,8 @@
         .um-cell.free-cell {
             background: #ecc94b !important;
             color: #744210 !important;
-            font-size: 6px;
-            font-weight: 900;
-        }
-
-        .bingo-btn {
-            width: 100%;
-            background: #00c853;
-            color: #ffffff;
-            border: none;
-            padding: 5px;
-            border-radius: 4px;
             font-size: 9px;
-            font-weight: 800;
-            margin-top: 4px;
-            cursor: pointer;
-            text-transform: uppercase;
+            font-weight: 900;
         }
 
         #custom-toast {
@@ -557,7 +543,7 @@
                         <div class="bh-g">G</div>
                         <div class="bh-o">O</div>
                     </div>
-                    <div class="balls-grid-1-75" id="ballsGrid1To75" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px;"></div>
+                    <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
                 </div>
 
                 <div class="game-main-area">
@@ -589,20 +575,7 @@
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
-
-        // Safety check: if calledBalls has reached 75 or finished, force reset immediately on load
-        if (calledBalls.length >= 75) {
-            localStorage.removeItem('y_gameStarted');
-            localStorage.removeItem('y_calledBalls');
-            localStorage.removeItem('y_selectedCards');
-            localStorage.setItem('y_timeLeft', '40');
-            localStorage.setItem('y_soldCount', '0');
-            gameStarted = false;
-            soldCount = 0;
-            timeLeft = 40;
-            selectedCards = [];
-            calledBalls = [];
-        }
+        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -622,7 +595,7 @@
                     let row = [];
                     for (let c = 0; c < 5; c++) {
                         if (r === 2 && c === 2) {
-                            row.push('FREE');
+                            row.push('★');
                         } else {
                             let randNum;
                             do {
@@ -688,6 +661,7 @@
             localStorage.setItem('y_timeLeft', timeLeft);
             localStorage.setItem('y_balance', balance);
             localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
         function toggleSelect(num, cell) {
@@ -746,8 +720,8 @@
                 for (let r = 0; r < 5; r++) {
                     for (let c = 0; c < 5; c++) {
                         let val = matrix[r][c];
-                        if (val === 'FREE') {
-                            matrixHtml += `<div class="matrix-cell free-cell">FREE</div>`;
+                        if (val === '★') {
+                            matrixHtml += `<div class="matrix-cell free-cell">★</div>`;
                         } else {
                             matrixHtml += `<div class="matrix-cell">${val}</div>`;
                         }
@@ -798,7 +772,8 @@
 
             const derashVal = document.getElementById('derash-val');
             const playersVal = document.getElementById('players-val');
-            if (derashVal) derashVal.innerText = (soldCount * 8) + ' ETB';
+            let currentDerash = soldCount * 8;
+            if (derashVal) derashVal.innerText = currentDerash + ' ETB';
             if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
@@ -848,10 +823,14 @@
                         for (let r = 0; r < 5; r++) {
                             for (let c = 0; c < 5; c++) {
                                 let val = matrix[r][c];
-                                if (val === 'FREE') {
-                                    cardHtml += `<div class="um-cell free-cell marked" data-val="FREE">FREE</div>`;
+                                let cellKey = `${cardNum}_${r}_${c}`;
+                                let isMarked = markedCellsState[cellKey] === true;
+                                
+                                if (val === '★') {
+                                    cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}">★</div>`;
                                 } else {
-                                    cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
+                                    let markedClass = isMarked ? 'marked' : '';
+                                    cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">${val}</div>`;
                                 }
                             }
                         }
@@ -868,7 +847,7 @@
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
                     showNotification('ጨዋታው ተጠናቋል! ወደ ካርቴላ መምረጫ ገጽ ይመለሳሉ...');
-                    setTimeout(() => resetGameLoop(), 2000);
+                    setTimeout(() => resetGameLoop(false), 2000);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
@@ -879,9 +858,39 @@
                 const targetCell = document.getElementById(`ball-num-${drawnBall}`);
                 if (targetCell) targetCell.classList.add('called');
 
+                // 1. Check user cards automatically for the newly called ball
+                selectedCards.forEach(cardNum => {
+                    const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+                    if (!matrixBox) return;
+                    const cells = matrixBox.querySelectorAll('.um-cell');
+                    cells.forEach(cell => {
+                        let val = cell.dataset.val;
+                        if (val !== '★' && parseInt(val) === drawnBall) {
+                            cell.classList.add('marked');
+                            let r = cell.dataset.row;
+                            let c = cell.dataset.col;
+                            markedCellsState[`${cardNum}_${r}_${c}`] = true;
+                        }
+                    });
+                });
+                saveState();
+
                 updateRecentTags();
                 const bVal = document.getElementById('balls-val');
                 if (bVal) bVal.innerText = calledBalls.length + '/75';
+
+                // 2. Auto win check after every ball call
+                selectedCards.forEach(cardNum => {
+                    if (checkWinningCondition(cardNum)) {
+                        if (ballInterval) clearInterval(ballInterval);
+                        let prize = soldCount * 8;
+                        balance += prize;
+                        showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+                        saveState();
+                        setTimeout(() => resetGameLoop(true), 2500);
+                    }
+                });
+
             }, 5000);
         }
 
@@ -902,8 +911,67 @@
             });
         }
 
-        function toggleMarkCell(cell) {
+        function toggleMarkCell(cell, cardNum, r, c) {
             cell.classList.toggle('marked');
+            let isMarked = cell.classList.contains('marked');
+            markedCellsState[`${cardNum}_${r}_${c}`] = isMarked;
+            saveState();
+        }
+
+        function checkWinningCondition(cardNum) {
+            const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+            if (!matrixBox) return false;
+            const cells = matrixBox.querySelectorAll('.um-cell');
+            let grid = [];
+            let row = [];
+            
+            cells.forEach((cell, index) => {
+                let val = cell.dataset.val;
+                row.push({
+                    marked: cell.classList.contains('marked'),
+                    value: val === '★' ? '★' : parseInt(val)
+                });
+                if ((index + 1) % 5 === 0) {
+                    grid.push(row);
+                    row = [];
+                }
+            });
+
+            let winningLines = [];
+
+            // Rows
+            for (let r = 0; r < 5; r++) {
+                if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
+            }
+            // Columns
+            for (let c = 0; c < 5; c++) {
+                if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
+            }
+            // Diagonals
+            if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
+            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
+
+            if (winningLines.length === 0) return false;
+
+            // Verify called numbers for any winning line
+            let uncalledNumbers = [];
+            winningLines.forEach(line => {
+                let lineCells = [];
+                if (line.type === 'row') lineCells = grid[line.index];
+                else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
+                else if (line.type === 'diag1') lineCells = [grid[0][0], grid[1][1], grid[2][2], grid[3][3], grid[4][4]];
+                else if (line.type === 'diag2') lineCells = [grid[0][4], grid[1][3], grid[2][2], grid[3][1], grid[4][0]];
+
+                lineCells.forEach(cell => {
+                    if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
+                        if (!uncalledNumbers.includes(cell.value)) {
+                            uncalledNumbers.push(cell.value);
+                        }
+                    }
+                });
+            });
+
+            return uncalledNumbers.length === 0;
         }
 
         function checkBingo(cardNum) {
@@ -917,7 +985,7 @@
                 let val = cell.dataset.val;
                 row.push({
                     marked: cell.classList.contains('marked'),
-                    value: val === 'FREE' ? 'FREE' : parseInt(val)
+                    value: val === '★' ? '★' : parseInt(val)
                 });
                 if ((index + 1) % 5 === 0) {
                     grid.push(row);
@@ -950,7 +1018,7 @@
                 else if (line.type === 'diag2') lineCells = [grid[0][4], grid[1][3], grid[2][2], grid[3][1], grid[4][0]];
 
                 lineCells.forEach(cell => {
-                    if (cell.value !== 'FREE' && !calledBalls.includes(cell.value)) {
+                    if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
                         if (!uncalledNumbers.includes(cell.value)) {
                             uncalledNumbers.push(cell.value);
                         }
@@ -964,15 +1032,19 @@
             }
 
             if (ballInterval) clearInterval(ballInterval);
-            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆`);
-            setTimeout(() => resetGameLoop(), 2000);
+            let prize = soldCount * 8;
+            balance += prize;
+            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+            saveState();
+            setTimeout(() => resetGameLoop(true), 2000);
         }
 
-        function resetGameLoop() {
+        function resetGameLoop(isWin) {
             if (ballInterval) clearInterval(ballInterval);
             localStorage.removeItem('y_gameStarted');
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem('y_selectedCards');
+            localStorage.removeItem('y_markedCellsState');
             localStorage.setItem('y_timeLeft', '40');
             localStorage.setItem('y_soldCount', '0');
             window.location.href = window.location.pathname + '?v=' + new Date().getTime();
