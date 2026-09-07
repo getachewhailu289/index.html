@@ -477,6 +477,7 @@
 
     <div class="container">
         
+        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
@@ -528,6 +529,7 @@
             </div>
         </div>
 
+        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -587,6 +589,20 @@
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
+
+        // Safety check: if calledBalls has reached 75 or finished, force reset immediately on load
+        if (calledBalls.length >= 75) {
+            localStorage.removeItem('y_gameStarted');
+            localStorage.removeItem('y_calledBalls');
+            localStorage.removeItem('y_selectedCards');
+            localStorage.setItem('y_timeLeft', '40');
+            localStorage.setItem('y_soldCount', '0');
+            gameStarted = false;
+            soldCount = 0;
+            timeLeft = 40;
+            selectedCards = [];
+            calledBalls = [];
+        }
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -851,8 +867,8 @@
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
-                    showNotification('ጨዋታው አልቋል! ወደ ካርቴላ መምረጫ ገጽ ይመለሳሉ...');
-                    setTimeout(() => resetGameLoop(), 2500);
+                    showNotification('ጨዋታው ተጠናቋል! ወደ ካርቴላ መምረጫ ገጽ ይመለሳሉ...');
+                    setTimeout(() => resetGameLoop(), 2000);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
@@ -866,7 +882,7 @@
                 updateRecentTags();
                 const bVal = document.getElementById('balls-val');
                 if (bVal) bVal.innerText = calledBalls.length + '/75';
-            }, 6000);
+            }, 5000);
         }
 
         function updateRecentTags() {
@@ -949,7 +965,7 @@
 
             if (ballInterval) clearInterval(ballInterval);
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆`);
-            setTimeout(() => resetGameLoop(), 2500);
+            setTimeout(() => resetGameLoop(), 2000);
         }
 
         function resetGameLoop() {
@@ -959,7 +975,7 @@
             localStorage.removeItem('y_selectedCards');
             localStorage.setItem('y_timeLeft', '40');
             localStorage.setItem('y_soldCount', '0');
-            window.location.reload();
+            window.location.href = window.location.pathname + '?v=' + new Date().getTime();
         }
     </script>
 </body>
