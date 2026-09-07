@@ -433,6 +433,19 @@
             font-weight: 900;
         }
 
+        .bingo-btn {
+            width: 100%;
+            margin-top: 5px;
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
         #custom-toast {
             position: fixed;
             bottom: 30px;
@@ -846,8 +859,8 @@
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
-                    showNotification('ጨዋታው ተጠናቋል! ወደ ካርቴላ መምረጫ ገጽ ይመለሳሉ...');
-                    setTimeout(() => resetGameLoop(false), 2000);
+                    showNotification('ሁሉም ቁጥሮች ተጠርተዋል! ጨዋታው ተጠናቋል...');
+                    setTimeout(() => resetGameLoop(), 2000);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
@@ -880,16 +893,27 @@
                 if (bVal) bVal.innerText = calledBalls.length + '/75';
 
                 // 2. Auto win check after every ball call
+                let hasWon = false;
                 selectedCards.forEach(cardNum => {
                     if (checkWinningCondition(cardNum)) {
+                        hasWon = true;
                         if (ballInterval) clearInterval(ballInterval);
                         let prize = soldCount * 8;
                         balance += prize;
                         showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
                         saveState();
-                        setTimeout(() => resetGameLoop(true), 2500);
+                        setTimeout(() => resetGameLoop(), 2500);
                     }
                 });
+
+                if (hasWon) return;
+
+                // 3. Check if all 75 balls reached after the latest call
+                if (calledBalls.length >= 75) {
+                    if (ballInterval) clearInterval(ballInterval);
+                    showNotification('ሁሉም 75 ቦሎች ተጠርተዋል! ጨዋታው አብቅቷል።');
+                    setTimeout(() => resetGameLoop(), 2500);
+                }
 
             }, 5000);
         }
@@ -1036,10 +1060,10 @@
             balance += prize;
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
             saveState();
-            setTimeout(() => resetGameLoop(true), 2000);
+            setTimeout(() => resetGameLoop(), 2000);
         }
 
-        function resetGameLoop(isWin) {
+        function resetGameLoop() {
             if (ballInterval) clearInterval(ballInterval);
             localStorage.removeItem('y_gameStarted');
             localStorage.removeItem('y_calledBalls');
