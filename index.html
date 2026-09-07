@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Telegram Mini App</title>
+    <title>YejuBingo Telegram Mini App</title>
     <style>
         * {
             box-sizing: border-box;
@@ -245,7 +245,7 @@
         <div class="header">
             <div class="header-left">
                 <button class="close-btn">&#10005;</button>
-                <div class="title">GoodBingo</div>
+                <div class="title">YejuBingoBingo</div>
             </div>
             <div class="header-right">
                 <button class="dropdown-arrow">&#9660;</button>
@@ -273,7 +273,7 @@
             </div>
         </div>
 
-        <!-- Numbers Grid (1 to 104) -->
+        <!-- Numbers Grid (1 to 250) -->
         <div class="grid-wrapper">
             <div class="grid-container">
                 <div class="numbers-grid" id="numbersGrid">
@@ -296,14 +296,14 @@
     </div>
 
     <script>
-        let soldCount = 6;
-        let timeLeft = 29;
+        let soldCount = 0;
+        let timeLeft = 35;
         let balance = 0.00;
         const cardPrice = 10.00;
         let selectedCards = [];
 
         const gridEl = document.getElementById('numbersGrid');
-        for (let i = 1; i <= 104; i++) {
+        for (let i = 1; i <= 250; i++) {
             const cell = document.createElement('div');
             cell.className = 'number-cell';
             cell.innerText = i;
