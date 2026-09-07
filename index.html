@@ -20,7 +20,6 @@
             align-items: center;
             min-height: 100vh;
             padding: 0;
-            position: relative;
         }
 
         .container {
@@ -244,17 +243,19 @@
             background: #e4e7ed;
             border-top-left-radius: 20px;
             border-top-right-radius: 20px;
-            padding: 10px;
-            gap: 10px;
+            padding: 8px;
+            gap: 6px;
+            overflow-x: hidden;
         }
 
         .balls-table-container {
-            width: 45%;
+            width: 48%;
             background: #ffffff;
-            border-radius: 12px;
-            padding: 8px;
-            max-height: 480px;
+            border-radius: 10px;
+            padding: 6px;
+            max-height: 520px;
             overflow-y: auto;
+            flex-shrink: 0;
         }
 
         .bingo-header-row {
@@ -262,9 +263,9 @@
             grid-template-columns: repeat(5, 1fr);
             text-align: center;
             font-weight: 900;
-            font-size: 13px;
-            margin-bottom: 6px;
-            padding: 4px 0;
+            font-size: 11px;
+            margin-bottom: 4px;
+            padding: 3px 0;
             border-radius: 4px;
             color: #ffffff;
         }
@@ -277,18 +278,18 @@
         .balls-grid-1-75 {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 3px;
+            gap: 2px;
         }
 
         .b-cell {
             background: #f7fafc;
             border: 1px solid #e2e8f0;
             text-align: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             color: #2d3748;
-            padding: 5px 0;
-            border-radius: 4px;
+            padding: 4px 0;
+            border-radius: 3px;
         }
 
         .b-cell.called {
@@ -302,31 +303,31 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding: 10px;
+            padding: 6px;
             background: #d8dbe2;
-            border-radius: 12px;
-            gap: 10px;
+            border-radius: 10px;
+            gap: 8px;
             overflow-y: auto;
+            min-width: 0;
         }
 
         /* Recent 5 Balls Bar */
         .recent-balls-bar {
             width: 100%;
             background: #ffffff;
-            padding: 6px;
-            border-radius: 8px;
+            padding: 4px 6px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
-            justify-content: space-around;
+            justify-content: space-between;
             border: 1px solid #cbd5e0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .recent-ball-tag {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 800;
             background: #edf2f7;
-            padding: 4px 6px;
+            padding: 3px 4px;
             border-radius: 4px;
             color: #2b6cb0;
             border: 1px solid #e2e8f0;
@@ -336,32 +337,32 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .user-card-box {
             background: #ffffff;
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 6px;
+            padding: 6px;
             border: 1px solid #cbd5e0;
         }
 
         .user-card-title {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             color: #3182ce;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             text-align: center;
         }
 
         .user-matrix-header {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 3px;
+            gap: 2px;
             margin-bottom: 2px;
             text-align: center;
             font-weight: 900;
-            font-size: 9px;
+            font-size: 8px;
             color: #ffffff;
         }
 
@@ -374,20 +375,20 @@
         .user-matrix {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 3px;
+            gap: 2px;
         }
 
         .um-cell {
             background: #f7fafc;
             border: 1px solid #cbd5e0;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 700;
             text-align: center;
             aspect-ratio: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 3px;
+            border-radius: 2px;
             cursor: pointer;
             color: #1a202c;
         }
@@ -403,11 +404,11 @@
             background: #00c853;
             color: #ffffff;
             border: none;
-            padding: 6px;
-            border-radius: 5px;
-            font-size: 10px;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 9px;
             font-weight: 800;
-            margin-top: 5px;
+            margin-top: 4px;
             cursor: pointer;
             text-transform: uppercase;
         }
@@ -530,8 +531,8 @@
                 <!-- Right: Recent 5 Balls & Slot 1 / Slot 2 -->
                 <div class="game-main-area">
                     <div class="recent-balls-bar" id="recentBallsBar">
-                        <span style="font-size: 9px; font-weight: 700; color: #718096;">RECENT:</span>
-                        <div id="recentTagsContainer" style="display: flex; gap: 4px;"></div>
+                        <span style="font-size: 8px; font-weight: 700; color: #718096;">RECENT:</span>
+                        <div id="recentTagsContainer" style="display: flex; gap: 3px;"></div>
                     </div>
                     <div class="active-user-cards" id="activeUserCardsContainer"></div>
                 </div>
@@ -550,9 +551,7 @@
         let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
         let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
 
-        // Check if game already started previously to restore state
         let gameStarted = localStorage.getItem('yeju_gameStarted') === 'true';
-
         let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
         
         function generateColumnNumber(colIndex) {
@@ -739,7 +738,7 @@
             userCardsContainer.innerHTML = '';
 
             if (selectedCards.length === 0) {
-                userCardsContainer.innerHTML = `<div style="font-size: 11px; color: #718096; text-align: center; padding: 20px;">ካርድ አልመረጡም</div>`;
+                userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 15px;">ካርድ አልመረጡም</div>`;
             } else {
                 selectedCards.forEach((cardNum, idx) => {
                     const cardBox = document.createElement('div');
@@ -768,7 +767,6 @@
                 });
             }
 
-            // 3 seconds interval for random ball generation
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
             let ballInterval = setInterval(() => {
@@ -794,7 +792,7 @@
             container.innerHTML = '';
             let last5 = calledBalls.slice(-5).reverse();
             if (last5.length === 0) {
-                container.innerHTML = `<span style="font-size: 10px; color: #a0aec0;">ቁጥር ገና አልወጣም</span>`;
+                container.innerHTML = `<span style="font-size: 9px; color: #a0aec0;">ቁጥር ገና አልወጣም</span>`;
                 return;
             }
             last5.forEach(num => {
@@ -828,17 +826,14 @@
 
             let isWinner = false;
 
-            // Check Horizontal lines
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) isWinner = true;
             }
 
-            // Check Vertical lines
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) isWinner = true;
             }
 
-            // Check Diagonal lines
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) isWinner = true;
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) isWinner = true;
 
