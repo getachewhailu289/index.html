@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YejuBingo Telegram Mini App</title>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -124,7 +126,7 @@
         }
 
         .grid-container {
-            max-height: 300px;
+            max-height: 310px;
             overflow-y: auto;
             padding: 4px;
         }
@@ -150,8 +152,8 @@
         }
 
         .number-cell.selected {
-            background: #d0d5dd;
-            color: #667085;
+            background: #3182ce;
+            color: #ffffff;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
             transform: scale(0.96);
         }
@@ -311,7 +313,6 @@
             min-width: 0;
         }
 
-        /* Recent 5 Balls Bar */
         .recent-balls-bar {
             width: 100%;
             background: #ffffff;
@@ -413,7 +414,6 @@
             text-transform: uppercase;
         }
 
-        /* Custom Notification Toast */
         #custom-toast {
             position: fixed;
             bottom: 30px;
@@ -444,7 +444,7 @@
 
     <div class="container">
         
-        <!-- ================= PAGE 1: BUYING & TIMER PAGE ================= -->
+        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
@@ -496,7 +496,7 @@
             </div>
         </div>
 
-        <!-- ================= PAGE 2: GAME PLAY PAGE ================= -->
+        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -516,7 +516,6 @@
             </div>
 
             <div class="game-body">
-                <!-- Left: 1 to 75 table -->
                 <div class="balls-table-container">
                     <div class="bingo-header-row">
                         <div class="bh-b">B</div>
@@ -528,7 +527,6 @@
                     <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
                 </div>
 
-                <!-- Right: Recent 5 Balls & Slot 1 / Slot 2 -->
                 <div class="game-main-area">
                     <div class="recent-balls-bar" id="recentBallsBar">
                         <span style="font-size: 8px; font-weight: 700; color: #718096;">RECENT:</span>
@@ -544,16 +542,22 @@
     <div id="custom-toast"></div>
 
     <script>
+        // Initialize Telegram Web App if available
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
+
         const cardPrice = 10.00;
         
-        let soldCount = localStorage.getItem('v2_soldCount') ? parseInt(localStorage.getItem('v2_soldCount')) : 0;
-        let timeLeft = localStorage.getItem('v2_timeLeft') ? parseInt(localStorage.getItem('v2_timeLeft')) : 40;
-        let balance = localStorage.getItem('v2_balance') ? parseFloat(localStorage.getItem('v2_balance')) : 50.00;
-        let selectedCards = localStorage.getItem('v2_selectedCards') ? JSON.parse(localStorage.getItem('v2_selectedCards')) : [];
+        let soldCount = localStorage.getItem('yeju_soldCount') ? parseInt(localStorage.getItem('yeju_soldCount')) : 0;
+        let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 40;
+        let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
+        let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
+        let gameStarted = localStorage.getItem('yeju_gameStarted') === 'true';
+        let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
+        let calledBalls = localStorage.getItem('yeju_calledBalls') ? JSON.parse(localStorage.getItem('yeju_calledBalls')) : [];
 
-        let gameStarted = localStorage.getItem('v2_gameStarted') === 'true';
-        let cardMatrices = localStorage.getItem('v2_cardMatrices') ? JSON.parse(localStorage.getItem('v2_cardMatrices')) : {};
-        
         function generateColumnNumber(colIndex) {
             let min, max;
             if (colIndex === 0) { min = 1; max = 15; }
@@ -582,7 +586,7 @@
                 }
                 cardMatrices[i] = matrix;
             }
-            localStorage.setItem('v2_cardMatrices', JSON.stringify(cardMatrices));
+            localStorage.setItem('yeju_cardMatrices', JSON.stringify(cardMatrices));
         }
 
         const gridEl = document.getElementById('numbersGrid');
@@ -606,27 +610,29 @@
                     timeLeft--;
                 } else {
                     clearInterval(timerInterval);
-                    localStorage.setItem('v2_gameStarted', 'true');
+                    localStorage.setItem('yeju_gameStarted', 'true');
                     switchToGamePage();
                     return;
                 }
-                localStorage.setItem('v2_timeLeft', timeLeft);
-                document.getElementById('timer').innerText = timeLeft + 's';
+                localStorage.setItem('yeju_timeLeft', timeLeft);
+                const timerEl = document.getElementById('timer');
+                if (timerEl) timerEl.innerText = timeLeft + 's';
             }, 1000);
         }
 
         function showNotification(message) {
             const toast = document.getElementById('custom-toast');
+            if (!toast) return;
             toast.innerText = message;
             toast.classList.add('show');
             setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
         function saveState() {
-            localStorage.setItem('v2_soldCount', soldCount);
-            localStorage.setItem('v2_timeLeft', timeLeft);
-            localStorage.setItem('v2_balance', balance);
-            localStorage.setItem('v2_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('yeju_soldCount', soldCount);
+            localStorage.setItem('yeju_timeLeft', timeLeft);
+            localStorage.setItem('yeju_balance', balance);
+            localStorage.setItem('yeju_selectedCards', JSON.stringify(selectedCards));
         }
 
         function toggleSelect(num, cell) {
@@ -639,7 +645,7 @@
                 soldCount--;
             } else {
                 if (balance <= 0) {
-                    showNotification('ባላንስዎ ስለተጠናቀቀ ወይም ዜሮ ስለሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
+                    showNotification('ባላንስዎ ስለተጠናቀቀ ተጨማሪ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 if (selectedCards.length >= 2) {
@@ -656,15 +662,19 @@
         }
 
         function updateDisplay() {
-            document.getElementById('sold-count').innerText = soldCount;
-            document.getElementById('balance-amount').innerText = balance.toFixed(2) + ' ETB';
-            document.getElementById('timer').innerText = timeLeft + 's';
+            const soldEl = document.getElementById('sold-count');
+            const balEl = document.getElementById('balance-amount');
+            const timeEl = document.getElementById('timer');
+            if (soldEl) soldEl.innerText = soldCount;
+            if (balEl) balEl.innerText = balance.toFixed(2) + ' ETB';
+            if (timeEl) timeEl.innerText = timeLeft + 's';
             renderSlot(1, selectedCards[0]);
             renderSlot(2, selectedCards[1]);
         }
 
         function renderSlot(slotNum, cardNum) {
             const box = document.getElementById(`slot${slotNum}`);
+            if (!box) return;
             if (cardNum !== undefined) {
                 box.classList.add('filled');
                 let matrixHtml = `<div class="slot-text">SLOT ${slotNum} (CARD #${cardNum})</div><div class="mini-matrix">`;
@@ -701,8 +711,6 @@
             updateDisplay();
         }
 
-        let calledBalls = localStorage.getItem('v2_calledBalls') ? JSON.parse(localStorage.getItem('v2_calledBalls')) : [];
-
         function getBallPrefix(num) {
             if (num >= 1 && num <= 15) return 'B' + num;
             if (num >= 16 && num <= 30) return 'I' + num;
@@ -712,59 +720,68 @@
         }
 
         function switchToGamePage() {
-            document.getElementById('page-buy').classList.remove('active');
-            document.getElementById('page-game').classList.add('active');
+            const pageBuy = document.getElementById('page-buy');
+            const pageGame = document.getElementById('page-game');
+            if (pageBuy) pageBuy.classList.remove('active');
+            if (pageGame) pageGame.classList.add('active');
 
-            document.getElementById('derash-val').innerText = (soldCount * 8) + ' ETB';
-            document.getElementById('players-val').innerText = soldCount;
+            const derashVal = document.getElementById('derash-val');
+            const playersVal = document.getElementById('players-val');
+            if (derashVal) derashVal.innerText = (soldCount * 8) + ' ETB';
+            if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
-            bGrid.innerHTML = '';
-            for (let i = 1; i <= 75; i++) {
-                const bCell = document.createElement('div');
-                bCell.className = 'b-cell';
-                bCell.innerText = i;
-                bCell.id = `ball-num-${i}`;
-                if (calledBalls.includes(i)) {
-                    bCell.classList.add('called');
+            if (bGrid) {
+                bGrid.innerHTML = '';
+                for (let i = 1; i <= 75; i++) {
+                    const bCell = document.createElement('div');
+                    bCell.className = 'b-cell';
+                    bCell.innerText = i;
+                    bCell.id = `ball-num-${i}`;
+                    if (calledBalls.includes(i)) {
+                        bCell.classList.add('called');
+                    }
+                    bGrid.appendChild(bCell);
                 }
-                bGrid.appendChild(bCell);
             }
 
             updateRecentTags();
-            document.getElementById('balls-val').innerText = calledBalls.length + '/75';
+            const ballsVal = document.getElementById('balls-val');
+            if (ballsVal) ballsVal.innerText = calledBalls.length + '/75';
 
             const userCardsContainer = document.getElementById('activeUserCardsContainer');
-            userCardsContainer.innerHTML = '';
+            if (userCardsContainer) {
+                userCardsContainer.innerHTML = '';
 
-            if (selectedCards.length === 0) {
-                userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 15px;">ካርድ አልመረጡም</div>`;
-            } else {
-                selectedCards.forEach((cardNum, idx) => {
-                    const cardBox = document.createElement('div');
-                    cardBox.className = 'user-card-box';
-                    
-                    let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div>`;
-                    cardHtml += `<div class="user-matrix-header">
-                        <div class="umh-b">B</div>
-                        <div class="umh-i">I</div>
-                        <div class="umh-n">N</div>
-                        <div class="umh-g">G</div>
-                        <div class="umh-o">O</div>
-                    </div>`;
-                    cardHtml += `<div class="user-matrix" id="matrix-box-${cardNum}">`;
-                    
-                    const matrix = cardMatrices[cardNum];
-                    for (let r = 0; r < 5; r++) {
-                        for (let c = 0; c < 5; c++) {
-                            let val = matrix[r][c];
-                            cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
+                if (selectedCards.length === 0) {
+                    userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 15px;">ካርድ አልመረጡም</div>`;
+                } else {
+                    selectedCards.forEach((cardNum, idx) => {
+                        const cardBox = document.createElement('div');
+                        cardBox.className = 'user-card-box';
+                        
+                        let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div>`;
+                        cardHtml += `<div class="user-matrix-header">
+                            <div class="umh-b">B</div>
+                            <div class="umh-i">I</div>
+                            <div class="umh-n">N</div>
+                            <div class="umh-g">G</div>
+                            <div class="umh-o">O</div>
+                        </div>`;
+                        cardHtml += `<div class="user-matrix" id="matrix-box-${cardNum}">`;
+                        
+                        const matrix = cardMatrices[cardNum];
+                        for (let r = 0; r < 5; r++) {
+                            for (let c = 0; c < 5; c++) {
+                                let val = matrix[r][c];
+                                cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
+                            }
                         }
-                    }
-                    cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
-                    cardBox.innerHTML = cardHtml;
-                    userCardsContainer.appendChild(cardBox);
-                });
+                        cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
+                        cardBox.innerHTML = cardHtml;
+                        userCardsContainer.appendChild(cardBox);
+                    });
+                }
             }
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
@@ -777,18 +794,20 @@
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
                 let drawnBall = availableBalls.splice(randomIndex, 1)[0];
                 calledBalls.push(drawnBall);
-                localStorage.setItem('v2_calledBalls', JSON.stringify(calledBalls));
+                localStorage.setItem('yeju_calledBalls', JSON.stringify(calledBalls));
 
                 const targetCell = document.getElementById(`ball-num-${drawnBall}`);
                 if (targetCell) targetCell.classList.add('called');
 
                 updateRecentTags();
-                document.getElementById('balls-val').innerText = calledBalls.length + '/75';
+                const bVal = document.getElementById('balls-val');
+                if (bVal) bVal.innerText = calledBalls.length + '/75';
             }, 3000);
         }
 
         function updateRecentTags() {
             const container = document.getElementById('recentTagsContainer');
+            if (!container) return;
             container.innerHTML = '';
             let last5 = calledBalls.slice(-5).reverse();
             if (last5.length === 0) {
@@ -809,6 +828,7 @@
 
         function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+            if (!matrixBox) return;
             const cells = matrixBox.querySelectorAll('.um-cell');
             let grid = [];
             let row = [];
