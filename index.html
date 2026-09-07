@@ -288,7 +288,7 @@
             </div>
             <div class="stat-badge badge-time">
                 <span class="stat-label" style="color: #94a3b8;">TIME</span>
-                <span class="stat-value" id="timer">29s</span>
+                <span class="stat-value" id="timer">40s</span>
             </div>
             <div class="stat-badge badge-balance">
                 <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
@@ -323,9 +323,9 @@
     <script>
         const cardPrice = 10.00;
         
-        // Load Saved State from localStorage or set defaults
+        // Load Saved State from localStorage or set defaults (Time starts from 40)
         let soldCount = localStorage.getItem('yeju_soldCount') ? parseInt(localStorage.getItem('yeju_soldCount')) : 0;
-        let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 29;
+        let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 40;
         let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
         let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
 
@@ -371,12 +371,12 @@
         // Initial Display Update
         updateDisplay();
 
-        // Timer countdown with persistence
+        // Timer countdown with persistence (Resets to 40 when it reaches 0)
         setInterval(() => {
             if (timeLeft > 0) {
                 timeLeft--;
             } else {
-                timeLeft = 29; // Restart timer if it reaches 0
+                timeLeft = 40;
             }
             localStorage.setItem('yeju_timeLeft', timeLeft);
             document.getElementById('timer').innerText = timeLeft + 's';
