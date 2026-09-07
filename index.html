@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YejuBingo Telegram Mini App</title>
-    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -444,7 +443,6 @@
 
     <div class="container">
         
-        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
@@ -496,7 +494,6 @@
             </div>
         </div>
 
-        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -524,7 +521,7 @@
                         <div class="bh-g">G</div>
                         <div class="bh-o">O</div>
                     </div>
-                    <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
+                    <div class="balls-grid-1-75" id="ballsGrid1To75" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px;"></div>
                 </div>
 
                 <div class="game-main-area">
@@ -542,7 +539,6 @@
     <div id="custom-toast"></div>
 
     <script>
-        // Initialize Telegram Web App if available
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -550,13 +546,13 @@
 
         const cardPrice = 10.00;
         
-        let soldCount = localStorage.getItem('yeju_soldCount') ? parseInt(localStorage.getItem('yeju_soldCount')) : 0;
-        let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 40;
-        let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
-        let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
-        let gameStarted = localStorage.getItem('yeju_gameStarted') === 'true';
-        let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
-        let calledBalls = localStorage.getItem('yeju_calledBalls') ? JSON.parse(localStorage.getItem('yeju_calledBalls')) : [];
+        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
+        let timeLeft = localStorage.getItem('y_timeLeft') ? parseInt(localStorage.getItem('y_timeLeft')) : 40;
+        let balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 50.00;
+        let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
+        let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
+        let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
+        let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -586,7 +582,7 @@
                 }
                 cardMatrices[i] = matrix;
             }
-            localStorage.setItem('yeju_cardMatrices', JSON.stringify(cardMatrices));
+            localStorage.setItem('y_cardMatrices', JSON.stringify(cardMatrices));
         }
 
         const gridEl = document.getElementById('numbersGrid');
@@ -602,19 +598,24 @@
 
         updateDisplay();
 
+        let timerInterval = null;
         if (gameStarted) {
             switchToGamePage();
         } else {
-            let timerInterval = setInterval(() => {
+            startBuyTimer();
+        }
+
+        function startBuyTimer() {
+            timerInterval = setInterval(() => {
                 if (timeLeft > 0) {
                     timeLeft--;
                 } else {
                     clearInterval(timerInterval);
-                    localStorage.setItem('yeju_gameStarted', 'true');
+                    localStorage.setItem('y_gameStarted', 'true');
                     switchToGamePage();
                     return;
                 }
-                localStorage.setItem('yeju_timeLeft', timeLeft);
+                localStorage.setItem('y_timeLeft', timeLeft);
                 const timerEl = document.getElementById('timer');
                 if (timerEl) timerEl.innerText = timeLeft + 's';
             }, 1000);
@@ -629,10 +630,10 @@
         }
 
         function saveState() {
-            localStorage.setItem('yeju_soldCount', soldCount);
-            localStorage.setItem('yeju_timeLeft', timeLeft);
-            localStorage.setItem('yeju_balance', balance);
-            localStorage.setItem('yeju_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('y_soldCount', soldCount);
+            localStorage.setItem('y_timeLeft', timeLeft);
+            localStorage.setItem('y_balance', balance);
+            localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
         }
 
         function toggleSelect(num, cell) {
@@ -719,6 +720,8 @@
             return 'O' + num;
         }
 
+        let ballInterval = null;
+
         function switchToGamePage() {
             const pageBuy = document.getElementById('page-buy');
             const pageGame = document.getElementById('page-game');
@@ -730,18 +733,22 @@
             if (derashVal) derashVal.innerText = (soldCount * 8) + ' ETB';
             if (playersVal) playersVal.innerText = soldCount;
 
+            // Render 1-75 table grouped by BINGO ranges (Columns: 1-15, 16-30, 31-45, 46-60, 61-75)
             const bGrid = document.getElementById('ballsGrid1To75');
             if (bGrid) {
                 bGrid.innerHTML = '';
-                for (let i = 1; i <= 75; i++) {
-                    const bCell = document.createElement('div');
-                    bCell.className = 'b-cell';
-                    bCell.innerText = i;
-                    bCell.id = `ball-num-${i}`;
-                    if (calledBalls.includes(i)) {
-                        bCell.classList.add('called');
+                for (let r = 1; r <= 15; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        let num = c * 15 + r;
+                        const bCell = document.createElement('div');
+                        bCell.className = 'b-cell';
+                        bCell.innerText = num;
+                        bCell.id = `ball-num-${num}`;
+                        if (calledBalls.includes(num)) {
+                            bCell.classList.add('called');
+                        }
+                        bGrid.appendChild(bCell);
                     }
-                    bGrid.appendChild(bCell);
                 }
             }
 
@@ -786,15 +793,18 @@
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
-            let ballInterval = setInterval(() => {
-                if (availableBalls.length === 0) {
+            // 4 ሰኮንድ ልዩነት ያለው የቁጥር ጥሪ ሉፕ (Routine)
+            ballInterval = setInterval(() => {
+                if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
+                    showNotification('ጨዋታው አልቋል! ወደ መጀመሪያው ገጽ ይመለሳሉ...');
+                    setTimeout(() => resetGameLoop(), 3000);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
                 let drawnBall = availableBalls.splice(randomIndex, 1)[0];
                 calledBalls.push(drawnBall);
-                localStorage.setItem('yeju_calledBalls', JSON.stringify(calledBalls));
+                localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
 
                 const targetCell = document.getElementById(`ball-num-${drawnBall}`);
                 if (targetCell) targetCell.classList.add('called');
@@ -802,7 +812,7 @@
                 updateRecentTags();
                 const bVal = document.getElementById('balls-val');
                 if (bVal) bVal.innerText = calledBalls.length + '/75';
-            }, 3000);
+            }, 4000);
         }
 
         function updateRecentTags() {
@@ -858,10 +868,23 @@
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) isWinner = true;
 
             if (isWinner) {
+                if (ballInterval) clearInterval(ballInterval);
                 showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ቢንጎ አሸንፏል! 🏆`);
+                setTimeout(() => resetGameLoop(), 3500);
             } else {
                 showNotification(`❌ ካርድ #${cardNum}: አግድም፣ ቁመት ወይም ሰያፍ መስመር ሙሉ በሙሉ አልተሟላም!`);
             }
+        }
+
+        // ሙሉ ሉፕ (Routine) - ጨዋታ ሲያልቅ ወይም አሸናፊ ሲኖር ወደ መጀመሪያው ገጽ የመመለሻ ተግባር
+        function resetGameLoop() {
+            if (ballInterval) clearInterval(ballInterval);
+            localStorage.removeItem('y_gameStarted');
+            localStorage.removeItem('y_calledBalls');
+            localStorage.removeItem('y_selectedCards');
+            localStorage.setItem('y_timeLeft', '40');
+            localStorage.setItem('y_soldCount', '0');
+            window.location.reload();
         }
     </script>
 </body>
