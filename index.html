@@ -166,14 +166,6 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
-        .number-cell.sold {
-            background: #cbd5e0;
-            color: #718096;
-            border-color: #a0aec0;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-
         .number-cell.selected {
             background: #3182ce;
             color: #ffffff;
@@ -304,6 +296,11 @@
                 <span class="stat-label">TIME</span>
                 <span class="stat-value" id="timer">27s</span>
             </div>
+            <!-- Balance Badge -->
+            <div class="stat-badge badge-balance" style="grid-column: span 3; margin-top: 4px; display: flex; flex-direction: row; justify-content: space-between; padding: 8px 12px;">
+                <span>BALANCE:</span>
+                <span id="balance-amount">100.00 ETB</span>
+            </div>
         </div>
 
         <!-- Numbers Grid (1 to 104) -->
@@ -333,13 +330,13 @@
     </div>
 
     <script>
-        // Pre-sold numbers matching screenshot
-        const soldNumbers = [12, 13, 19, 44, 55, 60, 84];
         let soldCount = 13;
         let timeLeft = 27;
+        let balance = 100.00; // Starting Balance
+        const cardPrice = 10.00; // Price per card
         let selectedCards = [];
 
-        // Generate grid 1 to 104
+        // Generate grid 1 to 104 - all active and clickable
         const gridEl = document.getElementById('numbersGrid');
         for (let i = 1; i <= 104; i++) {
             const cell = document.createElement('div');
@@ -347,11 +344,7 @@
             cell.innerText = i;
             cell.dataset.number = i;
 
-            if (soldNumbers.includes(i)) {
-                cell.classList.add('sold');
-            } else {
-                cell.addEventListener('click', () => toggleSelect(i, cell));
-            }
+            cell.addEventListener('click', () => toggleSelect(i, cell));
             gridEl.appendChild(cell);
         }
 
@@ -364,24 +357,35 @@
         }, 1000);
 
         function toggleSelect(num, cell) {
-            if (soldNumbers.includes(num)) return;
-
             const index = selectedCards.indexOf(num);
             if (index > -1) {
+                // Deselecting -> refund balance and decrease sold count
                 selectedCards.splice(index, 1);
                 cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             } else {
                 if (selectedCards.length >= 2) {
                     alert('ከሁለት በላይ ካርድ መምረጥ አይችሉም! (Max 2 cards)');
                     return;
                 }
+                if (balance < cardPrice) {
+                    alert('በቂ ባላንስ የለዎትም! (Insufficient Balance)');
+                    return;
+                }
                 selectedCards.push(num);
                 cell.classList.add('selected');
+                balance -= cardPrice;
+                soldCount++;
             }
-            updateSlots();
+            updateDisplay();
         }
 
-        function updateSlots() {
+        function updateDisplay() {
+            // Update Sold Count & Balance
+            document.getElementById('sold-count').innerText = soldCount;
+            document.getElementById('balance-amount').innerText = balance.toFixed(2) + ' ETB';
+
             // Slot 1
             const s1Box = document.getElementById('slot1');
             const s1Icon = document.getElementById('slot1-icon');
@@ -418,21 +422,27 @@
                 const removed = selectedCards.shift();
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if(cell) cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             } else if (slotNum === 2 && selectedCards.length > 1) {
                 const removed = selectedCards.pop();
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if(cell) cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             }
-            updateSlots();
+            updateDisplay();
         }
 
         function resetSelection() {
             selectedCards.forEach(num => {
                 const cell = document.querySelector(`[data-number='${num}']`);
                 if(cell) cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             });
             selectedCards = [];
-            updateSlots();
+            updateDisplay();
         }
 
         function confirmCards() {
@@ -441,9 +451,8 @@
                 return;
             }
             alert('በሳክሰስ ተገዝቷል! ካርድ ቁጥር: ' + selectedCards.join(', '));
-            soldCount += selectedCards.length;
-            document.getElementById('sold-count').innerText = soldCount;
-            resetSelection();
+            selectedCards = [];
+            updateDisplay();
         }
     </script>
 </body>
