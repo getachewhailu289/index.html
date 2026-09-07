@@ -477,7 +477,6 @@
 
     <div class="container">
         
-        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
@@ -529,7 +528,6 @@
             </div>
         </div>
 
-        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
@@ -557,7 +555,6 @@
                         <div class="bh-g">G</div>
                         <div class="bh-o">O</div>
                     </div>
-                    <!-- BINGO Columns Container (1-15, 16-30, 31-45, 46-60, 61-75) -->
                     <div class="balls-grid-1-75" id="ballsGrid1To75" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px;"></div>
                 </div>
 
@@ -608,7 +605,6 @@
                 for (let r = 0; r < 5; r++) {
                     let row = [];
                     for (let c = 0; c < 5; c++) {
-                        // መሀከል (ረድፍ 2፣ አምድ 2) ላይ FREE እንዲሆን
                         if (r === 2 && c === 2) {
                             row.push('FREE');
                         } else {
@@ -722,7 +718,6 @@
                 box.classList.add('filled');
                 let matrixHtml = `<div class="slot-text">SLOT ${slotNum} (CARD #${cardNum})</div>`;
                 matrixHtml += `<div class="mini-matrix-wrapper">`;
-                // የ BINGO ፊደላት ከቁጥሮቹ ትክክለኛ አናት ላይ
                 matrixHtml += `<div class="mini-matrix-header">
                     <div class="mmh-b">B</div>
                     <div class="mmh-i">I</div>
@@ -853,7 +848,7 @@
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
-            // የቁጥር ጥሪ ጊዜ ወደ 6 ሰኮንድ ከፍ ብሏል
+            // የቁጥር ጥሪ ጊዜ 6 ሰኮንድ
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
@@ -896,7 +891,6 @@
             cell.classList.toggle('marked');
         }
 
-        // BINGO ማረጋገጫ ከቁጥር ጥሪ ዝርዝር (calledBalls) ጋር ማወዳደር
         function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
@@ -916,20 +910,15 @@
                 }
             });
 
-            // 1. የተመረጠው መስመር (አግድም፣ ቁመት ወይም ሰያፍ) ሙሉ በሙሉ መሟላቱን እና የተመረጡት ቁጥሮች በድምፅ ጥሪ (calledBalls) ውስጥ መኖራቸውን ማረጋገጥ
             let winningLines = [];
 
-            // አግድም መስመሮች
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
-            // ቁመት መስመሮች
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
             }
-            // ሰያፍ 1
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
-            // ሰያፍ 2
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
             if (winningLines.length === 0) {
@@ -937,7 +926,6 @@
                 return;
             }
 
-            // 2. ተጫዋቹ የመረጣቸው ቁጥሮች በእርግጥ ተጠርተዋል ወይስ አልተጠሩም? የሚለውን መመርመር
             let uncalledNumbers = [];
             winningLines.forEach(line => {
                 let lineCells = [];
@@ -960,12 +948,12 @@
                 return;
             }
 
-            // ሁሉንም መስፈርቶች ካሟላ አሸናፊ ይሆናል
             if (ballInterval) clearInterval(ballInterval);
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆`);
             setTimeout(() => resetGameLoop(), 3500);
         }
 
+        // ጨዋታው ሲያልቅ ወይም አሸናፊ ሲኖር ውሂቡን አጽድቆ ወደ መጀመሪያው ገጽ (ካርቴላ መምረጫ) ይመልሰዋል
         function resetGameLoop() {
             if (ballInterval) clearInterval(ballInterval);
             localStorage.removeItem('y_gameStarted');
