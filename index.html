@@ -20,6 +20,7 @@
             align-items: center;
             min-height: 100vh;
             padding: 0;
+            position: relative;
         }
 
         .container {
@@ -259,6 +260,32 @@
             border-radius: 2px;
             border: 1px solid #cbd5e0;
         }
+
+        /* Custom Notification Toast */
+        #custom-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(30, 35, 45, 0.95);
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 1px solid #323b4e;
+            z-index: 1000;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        #custom-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -320,16 +347,17 @@
         </div>
     </div>
 
+    <!-- Custom Notification Toast -->
+    <div id="custom-toast"></div>
+
     <script>
         const cardPrice = 10.00;
         
-        // Load Saved State from localStorage or set defaults (Time starts from 40)
         let soldCount = localStorage.getItem('yeju_soldCount') ? parseInt(localStorage.getItem('yeju_soldCount')) : 0;
         let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 40;
         let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
         let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
 
-        // Generate or Load Secret Matrices for 250 cards
         let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
         if (Object.keys(cardMatrices).length === 0) {
             for (let i = 1; i <= 250; i++) {
@@ -359,7 +387,6 @@
             cell.innerText = i;
             cell.dataset.number = i;
 
-            // Mark selected if already in saved state
             if (selectedCards.includes(i)) {
                 cell.classList.add('selected');
             }
@@ -368,10 +395,8 @@
             gridEl.appendChild(cell);
         }
 
-        // Initial Display Update
         updateDisplay();
 
-        // Timer countdown with persistence (Resets to 40 when it reaches 0)
         setInterval(() => {
             if (timeLeft > 0) {
                 timeLeft--;
@@ -381,6 +406,15 @@
             localStorage.setItem('yeju_timeLeft', timeLeft);
             document.getElementById('timer').innerText = timeLeft + 's';
         }, 1000);
+
+        function showNotification(message) {
+            const toast = document.getElementById('custom-toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
 
         function saveState() {
             localStorage.setItem('yeju_soldCount', soldCount);
@@ -398,11 +432,11 @@
                 soldCount--;
             } else {
                 if (balance <= 0) {
-                    alert('ባላንስዎ ስለተጠናቀቀ ወይም ዜሮ ስለሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
+                    showNotification('ባላንስዎ ስለተጠናቀቀ ወይም ዜሮ ስለሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 if (selectedCards.length >= 2) {
-                    alert('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
+                    showNotification('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 selectedCards.push(num);
@@ -419,9 +453,7 @@
             document.getElementById('balance-amount').innerText = balance.toFixed(2) + ' ETB';
             document.getElementById('timer').innerText = timeLeft + 's';
 
-            // Slot 1
             renderSlot(1, selectedCards[0]);
-            // Slot 2
             renderSlot(2, selectedCards[1]);
         }
 
