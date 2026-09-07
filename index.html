@@ -309,6 +309,29 @@
             overflow-y: auto;
         }
 
+        /* Recent 5 Balls Bar */
+        .recent-balls-bar {
+            width: 100%;
+            background: #ffffff;
+            padding: 6px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            border: 1px solid #cbd5e0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .recent-ball-tag {
+            font-size: 10px;
+            font-weight: 800;
+            background: #edf2f7;
+            padding: 4px 6px;
+            border-radius: 4px;
+            color: #2b6cb0;
+            border: 1px solid #e2e8f0;
+        }
+
         .active-user-cards {
             width: 100%;
             display: flex;
@@ -330,6 +353,23 @@
             margin-bottom: 5px;
             text-align: center;
         }
+
+        .user-matrix-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+            margin-bottom: 2px;
+            text-align: center;
+            font-weight: 900;
+            font-size: 9px;
+            color: #ffffff;
+        }
+
+        .umh-b { background: #2196f3; border-radius: 2px; }
+        .umh-i { background: #f44336; border-radius: 2px; }
+        .umh-n { background: #ff9800; border-radius: 2px; }
+        .umh-g { background: #4caf50; border-radius: 2px; }
+        .umh-o { background: #9c27b0; border-radius: 2px; }
 
         .user-matrix {
             display: grid;
@@ -487,8 +527,12 @@
                     <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
                 </div>
 
-                <!-- Right: Slot 1 & Slot 2 only -->
+                <!-- Right: Recent 5 Balls & Slot 1 / Slot 2 -->
                 <div class="game-main-area">
+                    <div class="recent-balls-bar" id="recentBallsBar">
+                        <span style="font-size: 9px; font-weight: 700; color: #718096;">RECENT:</span>
+                        <div id="recentTagsContainer" style="display: flex; gap: 4px;"></div>
+                    </div>
                     <div class="active-user-cards" id="activeUserCardsContainer"></div>
                 </div>
             </div>
@@ -506,19 +550,33 @@
         let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
         let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
 
+        // Check if game already started previously to restore state
+        let gameStarted = localStorage.getItem('yeju_gameStarted') === 'true';
+
         let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
+        
+        function generateColumnNumber(colIndex) {
+            let min, max;
+            if (colIndex === 0) { min = 1; max = 15; }
+            else if (colIndex === 1) { min = 16; max = 30; }
+            else if (colIndex === 2) { min = 31; max = 45; }
+            else if (colIndex === 3) { min = 46; max = 60; }
+            else { min = 61; max = 75; }
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
         if (Object.keys(cardMatrices).length === 0) {
             for (let i = 1; i <= 250; i++) {
                 let matrix = [];
-                let usedNums = new Set();
+                let colUsed = Array.from({length: 5}, () => new Set());
                 for (let r = 0; r < 5; r++) {
                     let row = [];
                     for (let c = 0; c < 5; c++) {
                         let randNum;
                         do {
-                            randNum = Math.floor(Math.random() * 75) + 1;
-                        } while (usedNums.has(randNum));
-                        usedNums.add(randNum);
+                            randNum = generateColumnNumber(c);
+                        } while (colUsed[c].has(randNum));
+                        colUsed[c].add(randNum);
                         row.push(randNum);
                     }
                     matrix.push(row);
@@ -541,17 +599,22 @@
 
         updateDisplay();
 
-        let timerInterval = setInterval(() => {
-            if (timeLeft > 0) {
-                timeLeft--;
-            } else {
-                clearInterval(timerInterval);
-                switchToGamePage();
-                return;
-            }
-            localStorage.setItem('yeju_timeLeft', timeLeft);
-            document.getElementById('timer').innerText = timeLeft + 's';
-        }, 1000);
+        if (gameStarted) {
+            switchToGamePage();
+        } else {
+            let timerInterval = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                } else {
+                    clearInterval(timerInterval);
+                    localStorage.setItem('yeju_gameStarted', 'true');
+                    switchToGamePage();
+                    return;
+                }
+                localStorage.setItem('yeju_timeLeft', timeLeft);
+                document.getElementById('timer').innerText = timeLeft + 's';
+            }, 1000);
+        }
 
         function showNotification(message) {
             const toast = document.getElementById('custom-toast');
@@ -568,6 +631,7 @@
         }
 
         function toggleSelect(num, cell) {
+            if (gameStarted) return;
             const index = selectedCards.indexOf(num);
             if (index > -1) {
                 selectedCards.splice(index, 1);
@@ -620,6 +684,7 @@
         }
 
         function clearSlot(slotNum) {
+            if (gameStarted) return;
             if (slotNum === 1 && selectedCards.length > 0) {
                 const removed = selectedCards.shift();
                 const cell = document.querySelector(`[data-number='${removed}']`);
@@ -637,17 +702,23 @@
             updateDisplay();
         }
 
-        // Switch to Game Play Page logic & Start Random Ball Drawing
-        let calledBalls = [];
+        let calledBalls = localStorage.getItem('yeju_calledBalls') ? JSON.parse(localStorage.getItem('yeju_calledBalls')) : [];
+
+        function getBallPrefix(num) {
+            if (num >= 1 && num <= 15) return 'B' + num;
+            if (num >= 16 && num <= 30) return 'I' + num;
+            if (num >= 31 && num <= 45) return 'N' + num;
+            if (num >= 46 && num <= 60) return 'G' + num;
+            return 'O' + num;
+        }
+
         function switchToGamePage() {
             document.getElementById('page-buy').classList.remove('active');
             document.getElementById('page-game').classList.add('active');
 
-            // Set Derash (soldCount * 8) and Players (soldCount)
             document.getElementById('derash-val').innerText = (soldCount * 8) + ' ETB';
             document.getElementById('players-val').innerText = soldCount;
 
-            // Build 1 to 75 table
             const bGrid = document.getElementById('ballsGrid1To75');
             bGrid.innerHTML = '';
             for (let i = 1; i <= 75; i++) {
@@ -655,10 +726,15 @@
                 bCell.className = 'b-cell';
                 bCell.innerText = i;
                 bCell.id = `ball-num-${i}`;
+                if (calledBalls.includes(i)) {
+                    bCell.classList.add('called');
+                }
                 bGrid.appendChild(bCell);
             }
 
-            // Build user selected cards in game view (Slot 1 & Slot 2) with BINGO button
+            updateRecentTags();
+            document.getElementById('balls-val').innerText = calledBalls.length + '/75';
+
             const userCardsContainer = document.getElementById('activeUserCardsContainer');
             userCardsContainer.innerHTML = '';
 
@@ -669,12 +745,21 @@
                     const cardBox = document.createElement('div');
                     cardBox.className = 'user-card-box';
                     
-                    let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div><div class="user-matrix">`;
+                    let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div>`;
+                    cardHtml += `<div class="user-matrix-header">
+                        <div class="umh-b">B</div>
+                        <div class="umh-i">I</div>
+                        <div class="umh-n">N</div>
+                        <div class="umh-g">G</div>
+                        <div class="umh-o">O</div>
+                    </div>`;
+                    cardHtml += `<div class="user-matrix" id="matrix-box-${cardNum}">`;
+                    
                     const matrix = cardMatrices[cardNum];
                     for (let r = 0; r < 5; r++) {
                         for (let c = 0; c < 5; c++) {
                             let val = matrix[r][c];
-                            cardHtml += `<div class="um-cell" onclick="toggleMarkCell(this)">${val}</div>`;
+                            cardHtml += `<div class="um-cell" data-val="${val}" onclick="toggleMarkCell(this)">${val}</div>`;
                         }
                     }
                     cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
@@ -683,8 +768,9 @@
                 });
             }
 
-            // Start Random Ball Generator every 2 seconds
-            let availableBalls = Array.from({length: 75}, (_, i) => i + 1);
+            // 3 seconds interval for random ball generation
+            let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
+            
             let ballInterval = setInterval(() => {
                 if (availableBalls.length === 0) {
                     clearInterval(ballInterval);
@@ -693,14 +779,30 @@
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
                 let drawnBall = availableBalls.splice(randomIndex, 1)[0];
                 calledBalls.push(drawnBall);
+                localStorage.setItem('yeju_calledBalls', JSON.stringify(calledBalls));
 
-                // Highlight on 1-75 grid
                 const targetCell = document.getElementById(`ball-num-${drawnBall}`);
                 if (targetCell) targetCell.classList.add('called');
 
-                // Update Balls count display
+                updateRecentTags();
                 document.getElementById('balls-val').innerText = calledBalls.length + '/75';
-            }, 2000);
+            }, 3000);
+        }
+
+        function updateRecentTags() {
+            const container = document.getElementById('recentTagsContainer');
+            container.innerHTML = '';
+            let last5 = calledBalls.slice(-5).reverse();
+            if (last5.length === 0) {
+                container.innerHTML = `<span style="font-size: 10px; color: #a0aec0;">ቁጥር ገና አልወጣም</span>`;
+                return;
+            }
+            last5.forEach(num => {
+                const tag = document.createElement('div');
+                tag.className = 'recent-ball-tag';
+                tag.innerText = getBallPrefix(num);
+                container.appendChild(tag);
+            });
         }
 
         function toggleMarkCell(cell) {
@@ -708,7 +810,43 @@
         }
 
         function checkBingo(cardNum) {
-            showNotification(`ካርድ #${cardNum} ቢንጎ ተረጋግጧል! 🏆`);
+            const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+            const cells = matrixBox.querySelectorAll('.um-cell');
+            let grid = [];
+            let row = [];
+            
+            cells.forEach((cell, index) => {
+                row.push({
+                    marked: cell.classList.contains('marked'),
+                    value: parseInt(cell.dataset.val)
+                });
+                if ((index + 1) % 5 === 0) {
+                    grid.push(row);
+                    row = [];
+                }
+            });
+
+            let isWinner = false;
+
+            // Check Horizontal lines
+            for (let r = 0; r < 5; r++) {
+                if (grid[r].every(cell => cell.marked)) isWinner = true;
+            }
+
+            // Check Vertical lines
+            for (let c = 0; c < 5; c++) {
+                if (grid.every(row => row[c].marked)) isWinner = true;
+            }
+
+            // Check Diagonal lines
+            if ([0,1,2,3,4].every(i => grid[i][i].marked)) isWinner = true;
+            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) isWinner = true;
+
+            if (isWinner) {
+                showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ቢንጎ አሸንፏል! 🏆`);
+            } else {
+                showNotification(`❌ ካርድ #${cardNum}: አግድም፣ ቁመት ወይም ሰያፍ መስመር ሙሉ በሙሉ አልተሟላም!`);
+            }
         }
     </script>
 </body>
