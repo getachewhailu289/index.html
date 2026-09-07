@@ -32,6 +32,17 @@
             min-height: 100vh;
         }
 
+        .page {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            width: 100%;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
         /* Header Bar */
         .header {
             display: flex;
@@ -47,7 +58,7 @@
             gap: 16px;
         }
 
-        .close-btn {
+        .close-btn, .dropdown-arrow, .menu-dots {
             background: none;
             border: none;
             color: #ffffff;
@@ -67,23 +78,7 @@
             gap: 14px;
         }
 
-        .dropdown-arrow {
-            background: none;
-            border: none;
-            color: #a0aec0;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        .menu-dots {
-            background: none;
-            border: none;
-            color: #ffffff;
-            font-size: 20px;
-            cursor: pointer;
-        }
-
-        /* Top Badges Bar */
+        /* Top Badges Bar (Page 1) */
         .stats-bar {
             display: grid;
             grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr;
@@ -103,30 +98,10 @@
             height: 44px;
         }
 
-        .badge-room {
-            background: #fbc02d;
-            color: #1a1e29;
-            font-weight: 800;
-            font-size: 12px;
-        }
-
-        .badge-sold {
-            background: #262d3d;
-            color: #ffffff;
-            border: 1px solid #323b4e;
-        }
-
-        .badge-time {
-            background: #262d3d;
-            color: #ff5252;
-            border: 1px solid #323b4e;
-        }
-
-        .badge-balance {
-            background: #00c853;
-            color: #ffffff;
-            font-weight: 700;
-        }
+        .badge-room { background: #fbc02d; color: #1a1e29; font-weight: 800; font-size: 12px; }
+        .badge-sold { background: #262d3d; color: #ffffff; border: 1px solid #323b4e; }
+        .badge-time { background: #262d3d; color: #ff5252; border: 1px solid #323b4e; }
+        .badge-balance { background: #00c853; color: #ffffff; font-weight: 700; }
 
         .stat-label {
             font-size: 9px;
@@ -137,12 +112,9 @@
             letter-spacing: 0.5px;
         }
 
-        .stat-value {
-            font-size: 12px;
-            font-weight: 700;
-        }
+        .stat-value { font-size: 12px; font-weight: 700; }
 
-        /* Grid Section Container */
+        /* Grid Section Container (Page 1) */
         .grid-wrapper {
             background: #e4e7ed;
             border-top-left-radius: 20px;
@@ -176,7 +148,6 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-            transition: all 0.1s ease;
         }
 
         .number-cell.selected {
@@ -186,7 +157,7 @@
             transform: scale(0.96);
         }
 
-        /* Slots Section at the bottom */
+        /* Slots Section (Page 1) */
         .slots-section {
             display: flex;
             flex-direction: column;
@@ -223,22 +194,9 @@
             background: #ebf8ff;
         }
 
-        .slot-icon {
-            font-size: 20px;
-            color: #a0aec0;
-            margin-bottom: 2px;
-        }
+        .slot-icon { font-size: 20px; color: #a0aec0; margin-bottom: 2px; }
+        .slot-text { font-size: 9px; font-weight: 700; color: #718096; text-align: center; text-transform: uppercase; margin-bottom: 4px; }
 
-        .slot-text {
-            font-size: 9px;
-            font-weight: 700;
-            color: #718096;
-            text-align: center;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        /* Mini 5x5 Matrix inside slot */
         .mini-matrix {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -259,6 +217,173 @@
             justify-content: center;
             border-radius: 2px;
             border: 1px solid #cbd5e0;
+        }
+
+        /* PAGE 2 STYLES (Game Play Screen) */
+        .game-header-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 10px 16px;
+            background: #171b22;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .game-header-stats span {
+            display: block;
+            font-size: 14px;
+            color: #ffffff;
+            margin-top: 2px;
+        }
+
+        .game-body {
+            display: flex;
+            flex: 1;
+            background: #e4e7ed;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .balls-table-container {
+            width: 45%;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 8px;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+
+        .bingo-header-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            text-align: center;
+            font-weight: 900;
+            font-size: 13px;
+            margin-bottom: 6px;
+            padding: 4px 0;
+            border-radius: 4px;
+            color: #ffffff;
+        }
+        .bh-b { background: #2196f3; }
+        .bh-i { background: #f44336; }
+        .bh-n { background: #ff9800; }
+        .bh-g { background: #4caf50; }
+        .bh-o { background: #9c27b0; }
+
+        .balls-grid-1-75 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+        }
+
+        .b-cell {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #2d3748;
+            padding: 5px 0;
+            border-radius: 4px;
+        }
+
+        .b-cell.called {
+            background: #3182ce;
+            color: #ffffff;
+        }
+
+        .game-main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 10px;
+            background: #d8dbe2;
+            border-radius: 12px;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .progress-box {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 24px;
+            margin-top: 10px;
+        }
+
+        .progress-text-container {
+            text-align: center;
+        }
+
+        .progress-title {
+            font-size: 13px;
+            font-weight: 800;
+            font-style: italic;
+            color: #1a202c;
+            letter-spacing: 0.5px;
+        }
+
+        .progress-desc {
+            font-size: 10px;
+            color: #718096;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .active-user-cards {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .user-card-box {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+        }
+
+        .user-card-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #3182ce;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .user-matrix {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+        }
+
+        .um-cell {
+            background: #f7fafc;
+            border: 1px solid #cbd5e0;
+            font-size: 9px;
+            font-weight: 700;
+            text-align: center;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #1a202c;
+        }
+
+        .um-cell.marked {
+            background: #48bb78 !important;
+            color: #ffffff !important;
+            border-color: #38a169;
         }
 
         /* Custom Notification Toast */
@@ -291,63 +416,104 @@
 <body>
 
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-left">
-                <button class="close-btn">&#10005;</button>
-                <div class="title">YejuBingo</div>
+        
+        <!-- ================= PAGE 1: BUYING & TIMER PAGE ================= -->
+        <div id="page-buy" class="page active">
+            <div class="header">
+                <div class="header-left">
+                    <button class="close-btn">&#10005;</button>
+                    <div class="title">YejuBingo</div>
+                </div>
+                <div class="header-right">
+                    <button class="dropdown-arrow">&#9660;</button>
+                    <button class="menu-dots">&#8942;</button>
+                </div>
             </div>
-            <div class="header-right">
-                <button class="dropdown-arrow">&#9660;</button>
-                <button class="menu-dots">&#8942;</button>
-            </div>
-        </div>
 
-        <!-- Stats Bar -->
-        <div class="stats-bar">
-            <div class="stat-badge badge-room">
-                <span class="stat-label" style="color: #6b4f00;">ROOM</span>
-                <span class="stat-value">VIP 💰</span>
+            <div class="stats-bar">
+                <div class="stat-badge badge-room">
+                    <span class="stat-label" style="color: #6b4f00;">ROOM</span>
+                    <span class="stat-value">VIP 💰</span>
+                </div>
+                <div class="stat-badge badge-sold" id="sold-badge">
+                    <span class="stat-label" style="color: #94a3b8;">SOLD</span>
+                    <span class="stat-value" id="sold-count">0</span>
+                </div>
+                <div class="stat-badge badge-time">
+                    <span class="stat-label" style="color: #94a3b8;">TIME</span>
+                    <span class="stat-value" id="timer">40s</span>
+                </div>
+                <div class="stat-badge badge-balance">
+                    <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
+                    <span class="stat-value" id="balance-amount">50.00 ETB</span>
+                </div>
             </div>
-            <div class="stat-badge badge-sold" id="sold-badge">
-                <span class="stat-label" style="color: #94a3b8;">SOLD</span>
-                <span class="stat-value" id="sold-count">0</span>
-            </div>
-            <div class="stat-badge badge-time">
-                <span class="stat-label" style="color: #94a3b8;">TIME</span>
-                <span class="stat-value" id="timer">40s</span>
-            </div>
-            <div class="stat-badge badge-balance">
-                <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                <span class="stat-value" id="balance-amount">50.00 ETB</span>
-            </div>
-        </div>
 
-        <!-- Numbers Grid (1 to 250) -->
-        <div class="grid-wrapper">
-            <div class="grid-container">
-                <div class="numbers-grid" id="numbersGrid">
-                    <!-- Populated by JS -->
+            <div class="grid-wrapper">
+                <div class="grid-container">
+                    <div class="numbers-grid" id="numbersGrid"></div>
+                </div>
+            </div>
+
+            <div class="slots-section">
+                <div class="slots-row">
+                    <div class="slot-box" id="slot1" onclick="clearSlot(1)">
+                        <div class="slot-icon" id="slot1-icon">+</div>
+                        <div class="slot-text" id="slot1-text">SLOT 1 EMPTY</div>
+                    </div>
+                    <div class="slot-box" id="slot2" onclick="clearSlot(2)">
+                        <div class="slot-icon" id="slot2-icon">+</div>
+                        <div class="slot-text" id="slot2-text">SLOT 2 EMPTY</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Slots Section -->
-        <div class="slots-section">
-            <div class="slots-row">
-                <div class="slot-box" id="slot1" onclick="clearSlot(1)">
-                    <div class="slot-icon" id="slot1-icon">+</div>
-                    <div class="slot-text" id="slot1-text">SLOT 1 EMPTY</div>
+        <!-- ================= PAGE 2: GAME PLAY / PROGRESS PAGE ================= -->
+        <div id="page-game" class="page">
+            <div class="header">
+                <div class="header-left">
+                    <button class="close-btn">&#10005;</button>
+                    <div class="title">YejuBingo</div>
                 </div>
-                <div class="slot-box" id="slot2" onclick="clearSlot(2)">
-                    <div class="slot-icon" id="slot2-icon">+</div>
-                    <div class="slot-text" id="slot2-text">SLOT 2 EMPTY</div>
+                <div class="header-right">
+                    <button class="dropdown-arrow">&#9660;</button>
+                    <button class="menu-dots">&#8942;</button>
+                </div>
+            </div>
+
+            <div class="game-header-stats">
+                <div>DERASH <span id="derash-val">928 ETB</span></div>
+                <div>BALLS <span id="balls-val">0/75</span></div>
+                <div>PLAYERS <span id="players-val">116</span></div>
+            </div>
+
+            <div class="game-body">
+                <div class="balls-table-container">
+                    <div class="bingo-header-row">
+                        <div class="bh-b">B</div>
+                        <div class="bh-i">I</div>
+                        <div class="bh-n">N</div>
+                        <div class="bh-g">G</div>
+                        <div class="bh-o">O</div>
+                    </div>
+                    <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
+                </div>
+
+                <div class="game-main-area">
+                    <div class="progress-box">⏳</div>
+                    <div class="progress-text-container">
+                        <div class="progress-title">GAME IN PROGRESS</div>
+                        <div class="progress-desc">PLEASE WAIT FOR THE NEXT BUYING ROUND TO JOIN.</div>
+                    </div>
+
+                    <div class="active-user-cards" id="activeUserCardsContainer"></div>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <!-- Custom Notification Toast -->
     <div id="custom-toast"></div>
 
     <script>
@@ -386,22 +552,20 @@
             cell.className = 'number-cell';
             cell.innerText = i;
             cell.dataset.number = i;
-
-            if (selectedCards.includes(i)) {
-                cell.classList.add('selected');
-            }
-
+            if (selectedCards.includes(i)) cell.classList.add('selected');
             cell.addEventListener('click', () => toggleSelect(i, cell));
             gridEl.appendChild(cell);
         }
 
         updateDisplay();
 
-        setInterval(() => {
+        let timerInterval = setInterval(() => {
             if (timeLeft > 0) {
                 timeLeft--;
             } else {
-                timeLeft = 40;
+                clearInterval(timerInterval);
+                switchToGamePage();
+                return;
             }
             localStorage.setItem('yeju_timeLeft', timeLeft);
             document.getElementById('timer').innerText = timeLeft + 's';
@@ -411,9 +575,7 @@
             const toast = document.getElementById('custom-toast');
             toast.innerText = message;
             toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2500);
+            setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
         function saveState() {
@@ -452,7 +614,6 @@
             document.getElementById('sold-count').innerText = soldCount;
             document.getElementById('balance-amount').innerText = balance.toFixed(2) + ' ETB';
             document.getElementById('timer').innerText = timeLeft + 's';
-
             renderSlot(1, selectedCards[0]);
             renderSlot(2, selectedCards[1]);
         }
@@ -472,8 +633,7 @@
                 box.innerHTML = matrixHtml;
             } else {
                 box.classList.remove('filled');
-                box.innerHTML = `<div class="slot-icon" id="slot${slotNum}-icon">+</div>
-                                 <div class="slot-text" id="slot${slotNum}-text">SLOT ${slotNum} EMPTY</div>`;
+                box.innerHTML = `<div class="slot-icon">+</div><div class="slot-text">SLOT ${slotNum} EMPTY</div>`;
             }
         }
 
@@ -493,6 +653,49 @@
             }
             saveState();
             updateDisplay();
+        }
+
+        function switchToGamePage() {
+            document.getElementById('page-buy').classList.remove('active');
+            document.getElementById('page-game').classList.add('active');
+
+            const bGrid = document.getElementById('ballsGrid1To75');
+            bGrid.innerHTML = '';
+            for (let i = 1; i <= 75; i++) {
+                const bCell = document.createElement('div');
+                bCell.className = 'b-cell';
+                bCell.innerText = i;
+                bCell.id = `ball-num-${i}`;
+                bGrid.appendChild(bCell);
+            }
+
+            const userCardsContainer = document.getElementById('activeUserCardsContainer');
+            userCardsContainer.innerHTML = '';
+
+            if (selectedCards.length === 0) {
+                userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 10px;">ካርድ አልመረጡም</div>`;
+            } else {
+                selectedCards.forEach((cardNum, idx) => {
+                    const cardBox = document.createElement('div');
+                    cardBox.className = 'user-card-box';
+                    
+                    let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div><div class="user-matrix">`;
+                    const matrix = cardMatrices[cardNum];
+                    for (let r = 0; r < 5; r++) {
+                        for (let c = 0; c < 5; c++) {
+                            let val = matrix[r][c];
+                            cardHtml += `<div class="um-cell" onclick="toggleMarkCell(this)">${val}</div>`;
+                        }
+                    }
+                    cardHtml += `</div>`;
+                    cardBox.innerHTML = cardHtml;
+                    userCardsContainer.appendChild(cardBox);
+                });
+            }
+        }
+
+        function toggleMarkCell(cell) {
+            cell.classList.toggle('marked');
         }
     </script>
 </body>
