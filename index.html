@@ -646,11 +646,13 @@
         }
 
         function startBuyTimer() {
+            if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if (timeLeft > 0) {
                     timeLeft--;
                 } else {
                     clearInterval(timerInterval);
+                    gameStarted = true;
                     localStorage.setItem('y_gameStarted', 'true');
                     switchToGamePage();
                     return;
@@ -856,11 +858,12 @@
 
             let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
             
+            if (ballInterval) clearInterval(ballInterval);
             ballInterval = setInterval(() => {
                 if (availableBalls.length === 0 || calledBalls.length >= 75) {
                     clearInterval(ballInterval);
                     showNotification('ሁሉም ቁጥሮች ተጠርተዋል! ጨዋታው ተጠናቋል...');
-                    setTimeout(() => resetGameLoop(), 2000);
+                    setTimeout(() => resetGameLoopLocally(), 2000);
                     return;
                 }
                 let randomIndex = Math.floor(Math.random() * availableBalls.length);
@@ -902,7 +905,7 @@
                         balance += prize;
                         showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
                         saveState();
-                        setTimeout(() => resetGameLoop(), 2500);
+                        setTimeout(() => resetGameLoopLocally(), 2500);
                     }
                 });
 
@@ -912,7 +915,7 @@
                 if (calledBalls.length >= 75) {
                     if (ballInterval) clearInterval(ballInterval);
                     showNotification('ሁሉም 75 ቦሎች ተጠርተዋል! ጨዋታው አብቅቷል።');
-                    setTimeout(() => resetGameLoop(), 2500);
+                    setTimeout(() => resetGameLoopLocally(), 2500);
                 }
 
             }, 5000);
@@ -1060,18 +1063,40 @@
             balance += prize;
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
             saveState();
-            setTimeout(() => resetGameLoop(), 2000);
+            setTimeout(() => resetGameLoopLocally(), 2000);
         }
 
-        function resetGameLoop() {
+        function resetGameLoopLocally() {
             if (ballInterval) clearInterval(ballInterval);
+            
+            // Clear storage variables for next round
             localStorage.removeItem('y_gameStarted');
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem('y_selectedCards');
             localStorage.removeItem('y_markedCellsState');
             localStorage.setItem('y_timeLeft', '40');
             localStorage.setItem('y_soldCount', '0');
-            window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+
+            // Reset JS local variables
+            gameStarted = false;
+            calledBalls = [];
+            selectedCards = [];
+            markedCellsState = {};
+            soldCount = 0;
+            timeLeft = 40;
+
+            // Clear UI selections on grid
+            document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
+            updateDisplay();
+
+            // Switch back to Buy/Lobby Page smoothly without reloading page
+            const pageBuy = document.getElementById('page-buy');
+            const pageGame = document.getElementById('page-game');
+            if (pageGame) pageGame.classList.remove('active');
+            if (pageBuy) pageBuy.classList.add('active');
+
+            // Restart buying timer loop
+            startBuyTimer();
         }
     </script>
 </body>
