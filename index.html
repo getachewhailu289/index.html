@@ -321,31 +321,35 @@
     </div>
 
     <script>
-        let soldCount = 0;
-        let timeLeft = 29;
-        let balance = 50.00;
         const cardPrice = 10.00;
-        let selectedCards = [];
+        
+        // Load Saved State from localStorage or set defaults
+        let soldCount = localStorage.getItem('yeju_soldCount') ? parseInt(localStorage.getItem('yeju_soldCount')) : 0;
+        let timeLeft = localStorage.getItem('yeju_timeLeft') ? parseInt(localStorage.getItem('yeju_timeLeft')) : 29;
+        let balance = localStorage.getItem('yeju_balance') ? parseFloat(localStorage.getItem('yeju_balance')) : 50.00;
+        let selectedCards = localStorage.getItem('yeju_selectedCards') ? JSON.parse(localStorage.getItem('yeju_selectedCards')) : [];
 
-        // ለእያንዳንዱ ካርቴላ (1 እስከ 250) ከ 1-75 ቁጥሮች የተውጣጣ 5x5 ማትሪክስ በድብቅ ማመንጨት
-        const cardMatrices = {};
-        for (let i = 1; i <= 250; i++) {
-            let matrix = [];
-            let usedNums = new Set();
-            for (let r = 0; r < 5; r++) {
-                let row = [];
-                for (let c = 0; c < 5; c++) {
-                    let randNum;
-                    do {
-                        randNum = Math.floor(Math.random() * 75) + 1; // ከ 1 እስከ 75
-                    } while (usedNums.has(randNum));
-                    usedNums.add(randNum);
-                    row.push(randNum);
+        // Generate or Load Secret Matrices for 250 cards
+        let cardMatrices = localStorage.getItem('yeju_cardMatrices') ? JSON.parse(localStorage.getItem('yeju_cardMatrices')) : {};
+        if (Object.keys(cardMatrices).length === 0) {
+            for (let i = 1; i <= 250; i++) {
+                let matrix = [];
+                let usedNums = new Set();
+                for (let r = 0; r < 5; r++) {
+                    let row = [];
+                    for (let c = 0; c < 5; c++) {
+                        let randNum;
+                        do {
+                            randNum = Math.floor(Math.random() * 75) + 1;
+                        } while (usedNums.has(randNum));
+                        usedNums.add(randNum);
+                        row.push(randNum);
+                    }
+                    matrix.push(row);
                 }
-                matrix.push(row);
+                cardMatrices[i] = matrix;
             }
-            // መሃተኛው ቦታ (ፍሪ) በነፃ ሊሆን ከፈለገ ወይም በቁጥር ሊሞላ ይችላል
-            cardMatrices[i] = matrix;
+            localStorage.setItem('yeju_cardMatrices', JSON.stringify(cardMatrices));
         }
 
         const gridEl = document.getElementById('numbersGrid');
@@ -355,17 +359,35 @@
             cell.innerText = i;
             cell.dataset.number = i;
 
+            // Mark selected if already in saved state
+            if (selectedCards.includes(i)) {
+                cell.classList.add('selected');
+            }
+
             cell.addEventListener('click', () => toggleSelect(i, cell));
             gridEl.appendChild(cell);
         }
 
-        // Timer countdown
+        // Initial Display Update
+        updateDisplay();
+
+        // Timer countdown with persistence
         setInterval(() => {
             if (timeLeft > 0) {
                 timeLeft--;
-                document.getElementById('timer').innerText = timeLeft + 's';
+            } else {
+                timeLeft = 29; // Restart timer if it reaches 0
             }
+            localStorage.setItem('yeju_timeLeft', timeLeft);
+            document.getElementById('timer').innerText = timeLeft + 's';
         }, 1000);
+
+        function saveState() {
+            localStorage.setItem('yeju_soldCount', soldCount);
+            localStorage.setItem('yeju_timeLeft', timeLeft);
+            localStorage.setItem('yeju_balance', balance);
+            localStorage.setItem('yeju_selectedCards', JSON.stringify(selectedCards));
+        }
 
         function toggleSelect(num, cell) {
             const index = selectedCards.indexOf(num);
@@ -388,12 +410,14 @@
                 balance -= cardPrice;
                 soldCount++;
             }
+            saveState();
             updateDisplay();
         }
 
         function updateDisplay() {
             document.getElementById('sold-count').innerText = soldCount;
             document.getElementById('balance-amount').innerText = balance.toFixed(2) + ' ETB';
+            document.getElementById('timer').innerText = timeLeft + 's';
 
             // Slot 1
             renderSlot(1, selectedCards[0]);
@@ -435,6 +459,7 @@
                 balance += cardPrice;
                 soldCount--;
             }
+            saveState();
             updateDisplay();
         }
     </script>
