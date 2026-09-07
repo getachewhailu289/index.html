@@ -582,13 +582,21 @@
         const cardPrice = 10.00;
         
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
-        let timeLeft = localStorage.getItem('y_timeLeft') ? parseInt(localStorage.getItem('y_timeLeft')) : 40;
         let balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 50.00;
         let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+
+        // Robust Time Management for Background minimization
+        let roundStartTime = localStorage.getItem('y_roundStartTime');
+        if (!roundStartTime) {
+            roundStartTime = Date.now();
+            localStorage.setItem('y_roundStartTime', roundStartTime);
+        } else {
+            roundStartTime = parseInt(roundStartTime);
+        }
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -638,28 +646,136 @@
 
         updateDisplay();
 
-        let timerInterval = null;
-        if (gameStarted) {
-            switchToGamePage();
-        } else {
-            startBuyTimer();
-        }
+        let mainInterval = null;
 
-        function startBuyTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                if (timeLeft > 0) {
-                    timeLeft--;
-                } else {
-                    clearInterval(timerInterval);
+        // Check exact elapsed time on load/resume to prevent background freezing bugs
+        evaluateGameStateByTime();
+
+        function evaluateGameStateByTime() {
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
+
+            if (!gameStarted) {
+                // Lobby timer phase (40 seconds total)
+                let remainingBuyTime = 40 - elapsedSeconds;
+                if (remainingBuyTime <= 0) {
+                    // Time expired while app was minimized, start game automatically
                     gameStarted = true;
                     localStorage.setItem('y_gameStarted', 'true');
+                    // Reset round start time for game play phase
+                    roundStartTime = Date.now() - (selectedCards.length > 0 ? 0 : 0); // adjust timing
                     switchToGamePage();
+                } else {
+                    startGlobalLoop();
+                }
+            } else {
+                // Game play phase (each ball takes 5 seconds)
+                let gameElapsed = elapsedSeconds - 40;
+                if (gameElapsed < 0) gameElapsed = 0;
+                let expectedBallsCount = Math.floor(gameElapsed / 5);
+
+                if (expectedBallsCount > 75) expectedBallsCount = 75;
+
+                // If background missed calling some balls, catch up automatically right now!
+                if (calledBalls.length < expectedBallsCount && calledBalls.length < 75) {
+                    let allPossibleBalls = Array.from({length: 75}, (_, i) => i + 1);
+                    // Shuffle deterministically or pick remaining missing ones randomly
+                    let missingCount = expectedBallsCount - calledBalls.length;
+                    for (let m = 0; m < missingCount; m++) {
+                        let available = allPossibleBalls.filter(n => !calledBalls.includes(n));
+                        if (available.length === 0) break;
+                        let randIndex = Math.floor(Math.random() * available.length);
+                        calledBalls.push(available[randIndex]);
+                    }
+                    localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
+                }
+
+                if (calledBalls.length >= 75) {
+                    showNotification('ጨዋታው አልቋል! ወደ ቀጣዩ ራውንድ በመመለስ ላይ...');
+                    setTimeout(() => resetGameLoopLocally(), 1500);
                     return;
                 }
-                localStorage.setItem('y_timeLeft', timeLeft);
-                const timerEl = document.getElementById('timer');
-                if (timerEl) timerEl.innerText = timeLeft + 's';
+
+                switchToGamePage();
+            }
+        }
+
+        function startGlobalLoop() {
+            if (mainInterval) clearInterval(mainInterval);
+            mainInterval = setInterval(() => {
+                const now = Date.now();
+                const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
+
+                if (!gameStarted) {
+                    let timeLeft = 40 - elapsedSeconds;
+                    const timerEl = document.getElementById('timer');
+                    if (timerEl) timerEl.innerText = Math.max(0, timeLeft) + 's';
+
+                    if (timeLeft <= 0) {
+                        clearInterval(mainInterval);
+                        gameStarted = true;
+                        localStorage.setItem('y_gameStarted', 'true');
+                        roundStartTime = Date.now(); // reset for game
+                        switchToGamePage();
+                    }
+                } else {
+                    // Game loop calling a ball every 5 seconds
+                    let gameElapsed = Math.floor((now - roundStartTime) / 1000);
+                    let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
+
+                    if (targetBallsCount > calledBalls.length && calledBalls.length < 75) {
+                        let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
+                        if (availableBalls.length > 0) {
+                            let randomIndex = Math.floor(Math.random() * availableBalls.length);
+                            let drawnBall = availableBalls[randomIndex];
+                            calledBalls.push(drawnBall);
+                            localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
+
+                            const targetCell = document.getElementById(`ball-num-${drawnBall}`);
+                            if (targetCell) targetCell.classList.add('called');
+
+                            // Auto mark user cards
+                            selectedCards.forEach(cardNum => {
+                                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+                                if (!matrixBox) return;
+                                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
+                                    let val = cell.dataset.val;
+                                    if (val !== '★' && parseInt(val) === drawnBall) {
+                                        cell.classList.add('marked');
+                                        markedCellsState[`${cardNum}_${cell.dataset.row}_${cell.dataset.col}`] = true;
+                                    }
+                                });
+                            });
+                            saveState();
+
+                            updateRecentTags();
+                            const bVal = document.getElementById('balls-val');
+                            if (bVal) bVal.innerText = calledBalls.length + '/75';
+
+                            // Check win
+                            let hasWon = false;
+                            selectedCards.forEach(cardNum => {
+                                if (checkWinningCondition(cardNum)) {
+                                    hasWon = true;
+                                    if (mainInterval) clearInterval(mainInterval);
+                                    let prize = soldCount * 8;
+                                    balance += prize;
+                                    showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+                                    saveState();
+                                    setTimeout(() => resetGameLoopLocally(), 2500);
+                                }
+                            });
+
+                            if (hasWon) return;
+                        }
+                    }
+
+                    if (calledBalls.length >= 75) {
+                        if (mainInterval) clearInterval(mainInterval);
+                        showNotification('ሁሉም 75 ቦሎች ተጠርተዋል! ጨዋታው አብቅቷል።');
+                        setTimeout(() => resetGameLoopLocally(), 2000);
+                    }
+                }
             }, 1000);
         }
 
@@ -673,7 +789,6 @@
 
         function saveState() {
             localStorage.setItem('y_soldCount', soldCount);
-            localStorage.setItem('y_timeLeft', timeLeft);
             localStorage.setItem('y_balance', balance);
             localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
@@ -708,10 +823,8 @@
         function updateDisplay() {
             const soldEl = document.getElementById('sold-count');
             const balEl = document.getElementById('balance-amount');
-            const timeEl = document.getElementById('timer');
             if (soldEl) soldEl.innerText = soldCount;
             if (balEl) balEl.innerText = balance.toFixed(2) + ' ETB';
-            if (timeEl) timeEl.innerText = timeLeft + 's';
             renderSlot(1, selectedCards[0]);
             renderSlot(2, selectedCards[1]);
         }
@@ -777,8 +890,6 @@
             return 'O' + num;
         }
 
-        let ballInterval = null;
-
         function switchToGamePage() {
             const pageBuy = document.getElementById('page-buy');
             const pageGame = document.getElementById('page-game');
@@ -839,7 +950,7 @@
                             for (let c = 0; c < 5; c++) {
                                 let val = matrix[r][c];
                                 let cellKey = `${cardNum}_${r}_${c}`;
-                                let isMarked = markedCellsState[cellKey] === true;
+                                let isMarked = markedCellsState[cellKey] === true || (val !== '★' && calledBalls.includes(val));
                                 
                                 if (val === '★') {
                                     cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}">★</div>`;
@@ -856,69 +967,7 @@
                 }
             }
 
-            let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
-            
-            if (ballInterval) clearInterval(ballInterval);
-            ballInterval = setInterval(() => {
-                if (availableBalls.length === 0 || calledBalls.length >= 75) {
-                    clearInterval(ballInterval);
-                    showNotification('ሁሉም ቁጥሮች ተጠርተዋል! ጨዋታው ተጠናቋል...');
-                    setTimeout(() => resetGameLoopLocally(), 2000);
-                    return;
-                }
-                let randomIndex = Math.floor(Math.random() * availableBalls.length);
-                let drawnBall = availableBalls.splice(randomIndex, 1)[0];
-                calledBalls.push(drawnBall);
-                localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
-
-                const targetCell = document.getElementById(`ball-num-${drawnBall}`);
-                if (targetCell) targetCell.classList.add('called');
-
-                // 1. Check user cards automatically for the newly called ball
-                selectedCards.forEach(cardNum => {
-                    const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
-                    if (!matrixBox) return;
-                    const cells = matrixBox.querySelectorAll('.um-cell');
-                    cells.forEach(cell => {
-                        let val = cell.dataset.val;
-                        if (val !== '★' && parseInt(val) === drawnBall) {
-                            cell.classList.add('marked');
-                            let r = cell.dataset.row;
-                            let c = cell.dataset.col;
-                            markedCellsState[`${cardNum}_${r}_${c}`] = true;
-                        }
-                    });
-                });
-                saveState();
-
-                updateRecentTags();
-                const bVal = document.getElementById('balls-val');
-                if (bVal) bVal.innerText = calledBalls.length + '/75';
-
-                // 2. Auto win check after every ball call
-                let hasWon = false;
-                selectedCards.forEach(cardNum => {
-                    if (checkWinningCondition(cardNum)) {
-                        hasWon = true;
-                        if (ballInterval) clearInterval(ballInterval);
-                        let prize = soldCount * 8;
-                        balance += prize;
-                        showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-                        saveState();
-                        setTimeout(() => resetGameLoopLocally(), 2500);
-                    }
-                });
-
-                if (hasWon) return;
-
-                // 3. Check if all 75 balls reached after the latest call
-                if (calledBalls.length >= 75) {
-                    if (ballInterval) clearInterval(ballInterval);
-                    showNotification('ሁሉም 75 ቦሎች ተጠርተዋል! ጨዋታው አብቅቷል።');
-                    setTimeout(() => resetGameLoopLocally(), 2500);
-                }
-
-            }, 5000);
+            startGlobalLoop();
         }
 
         function updateRecentTags() {
@@ -980,7 +1029,6 @@
 
             if (winningLines.length === 0) return false;
 
-            // Verify called numbers for any winning line
             let uncalledNumbers = [];
             winningLines.forEach(line => {
                 let lineCells = [];
@@ -1058,7 +1106,7 @@
                 return;
             }
 
-            if (ballInterval) clearInterval(ballInterval);
+            if (mainInterval) clearInterval(mainInterval);
             let prize = soldCount * 8;
             balance += prize;
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
@@ -1067,36 +1115,32 @@
         }
 
         function resetGameLoopLocally() {
-            if (ballInterval) clearInterval(ballInterval);
+            if (mainInterval) clearInterval(mainInterval);
             
-            // Clear storage variables for next round
+            // Reset everything for the next loop
             localStorage.removeItem('y_gameStarted');
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem('y_selectedCards');
             localStorage.removeItem('y_markedCellsState');
-            localStorage.setItem('y_timeLeft', '40');
+            localStorage.setItem('y_roundStartTime', Date.now());
             localStorage.setItem('y_soldCount', '0');
 
-            // Reset JS local variables
             gameStarted = false;
             calledBalls = [];
             selectedCards = [];
             markedCellsState = {};
             soldCount = 0;
-            timeLeft = 40;
+            roundStartTime = Date.now();
 
-            // Clear UI selections on grid
             document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
             updateDisplay();
 
-            // Switch back to Buy/Lobby Page smoothly without reloading page
             const pageBuy = document.getElementById('page-buy');
             const pageGame = document.getElementById('page-game');
             if (pageGame) pageGame.classList.remove('active');
             if (pageBuy) pageBuy.classList.add('active');
 
-            // Restart buying timer loop
-            startBuyTimer();
+            startGlobalLoop();
         }
     </script>
 </body>
