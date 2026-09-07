@@ -178,7 +178,7 @@
             transition: all 0.1s ease;
         }
 
-        /* ሲመረጥ ብቻ ግራጫማ እንዲሆን (Sold/Selected look) */
+        /* ሲመረጥ ግራጫማ እንዲሆን */
         .number-cell.selected {
             background: #d0d5dd;
             color: #667085;
@@ -245,7 +245,7 @@
         <div class="header">
             <div class="header-left">
                 <button class="close-btn">&#10005;</button>
-                <div class="title">YejuBingoBingo</div>
+                <div class="title">YejuBingo</div>
             </div>
             <div class="header-right">
                 <button class="dropdown-arrow">&#9660;</button>
@@ -265,11 +265,11 @@
             </div>
             <div class="stat-badge badge-time">
                 <span class="stat-label" style="color: #94a3b8;">TIME</span>
-                <span class="stat-value" id="timer">35s</span>
+                <span class="stat-value" id="timer">29s</span>
             </div>
             <div class="stat-badge badge-balance">
                 <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                <span class="stat-value" id="balance-amount">0.00 ETB</span>
+                <span class="stat-value" id="balance-amount">50.00 ETB</span>
             </div>
         </div>
 
@@ -296,14 +296,14 @@
     </div>
 
     <script>
-        let soldCount = 0;
-        let timeLeft = 35;
-        let balance = 0.00;
-        const cardPrice = 10.00;
+        let soldCount = 0; // ከ 0 ጀምሮ እንዲቆጥር ተደርጓል
+        let timeLeft = 29;
+        let balance = 50.00; // ለሙከራ እንዲመች የተሰጠ Balace (ከ 0 በላይ መሆን አለበት)
+        const cardPrice = 10.00; // የአንድ ካርድ ዋጋ
         let selectedCards = [];
 
         const gridEl = document.getElementById('numbersGrid');
-        for (let i = 1; i <= 250; i++) {
+        for (let i = 1; i <= 250; i++) { // ብዛቱ ወደ 250 ከፍ ብሏል
             const cell = document.createElement('div');
             cell.className = 'number-cell';
             cell.innerText = i;
@@ -324,18 +324,24 @@
         function toggleSelect(num, cell) {
             const index = selectedCards.indexOf(num);
             if (index > -1) {
+                // መምረጡን ከሰረዘው (Deselect)
                 selectedCards.splice(index, 1);
                 cell.classList.remove('selected');
-                balance += cardPrice;
+                balance += cardPrice; // ገንዘቡን መልሶ ይጨምራል
                 soldCount--;
             } else {
+                // 2. ባላንስ ዜሮ ወይም ከእሱ በታች (ኔጌቲቭ) ከሆነ እንዳይመርጥ ይከለክላል
+                if (balance <= 0) {
+                    alert('ባላንስዎ ስለተጠናቀቀ ወይም ዜሮ ስለሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
+                    return;
+                }
                 if (selectedCards.length >= 2) {
                     alert('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 selectedCards.push(num);
                 cell.classList.add('selected');
-                balance -= cardPrice;
+                balance -= cardPrice; // ከባላንስ ይቀንሳል
                 soldCount++;
             }
             updateDisplay();
