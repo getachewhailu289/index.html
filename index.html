@@ -85,7 +85,7 @@
             gap: 16px;
         }
 
-        .close-btn, .dropdown-arrow, .menu-dots {
+        .close-btn {
             background: none;
             border: none;
             color: #ffffff;
@@ -580,11 +580,11 @@
         }
 
         const cardPrice = 10.00;
-        // Balance initialization: uses 150 as default if bot says so or loaded from storage
-        let balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 150.00;
-        let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
-        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+        let balance = 150.00;
+        let selectedCards = [];
+        let markedCellsState = {};
         let cardMatrices = {};
+        let globalTimerInterval = null;
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -624,12 +624,9 @@
             cell.className = 'number-cell';
             cell.innerText = i;
             cell.dataset.number = i;
-            if (selectedCards.includes(i)) cell.classList.add('selected');
-            cell.addEventListener('click', () => toggleSelect(i, cell));
+            cell.addEventListener('click', () => toggleSelect(i));
             gridEl.appendChild(cell);
         }
-
-        updateDisplay();
 
         const checkFirebaseInterval = setInterval(() => {
             if (window.firebaseReady) {
@@ -651,11 +648,18 @@
                         roundStartTime: now,
                         gameStarted: false,
                         calledBalls: [],
-                        soldCount: 0
+                        selectedCards: [],
+                        balance: 150.00
                     };
                     window.rtdbSet(gameRef, state);
+                    return;
                 }
 
+                balance = state.balance !== undefined ? state.balance : 150.00;
+                selectedCards = state.selectedCards || [];
+                
+                updateUIGridSelection();
+                updateDisplay();
                 handleGameState(state);
             });
         }
@@ -666,10 +670,28 @@
 
             if (!state.gameStarted) {
                 let timeLeft = 40 - elapsedSeconds;
+                
+                if (globalTimerInterval) clearInterval(globalTimerInterval);
+                
+                globalTimerInterval = setInterval(() => {
+                    let currentNow = Date.now();
+                    let currentElapsed = Math.floor((currentNow - state.roundStartTime) / 1000);
+                    let currentLeft = 40 - currentElapsed;
+                    
+                    const timerEl = document.getElementById('timer');
+                    if (timerEl) timerEl.innerText = Math.max(0, currentLeft) + 's';
+                    
+                    if (currentLeft <= 0) {
+                        clearInterval(globalTimerInterval);
+                        window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { gameStarted: true });
+                    }
+                }, 1000);
+
                 const timerEl = document.getElementById('timer');
                 if (timerEl) timerEl.innerText = Math.max(0, timeLeft) + 's';
+                
                 const soldEl = document.getElementById('sold-count');
-                if (soldEl) soldEl.innerText = state.soldCount || 0;
+                if (soldEl) soldEl.innerText = selectedCards.length;
 
                 if (timeLeft <= 0) {
                     window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { gameStarted: true });
@@ -677,6 +699,8 @@
                     switchToBuyPage();
                 }
             } else {
+                if (globalTimerInterval) clearInterval(globalTimerInterval);
+                
                 let gameElapsed = elapsedSeconds - 40;
                 if (gameElapsed < 0) gameElapsed = 0;
                 let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
@@ -692,7 +716,7 @@
                     }
                 }
 
-                switchToGamePage(calledBalls, state.soldCount || 0);
+                switchToGamePage(calledBalls, selectedCards.length);
 
                 if (calledBalls.length >= 75) {
                     setTimeout(() => {
@@ -707,7 +731,8 @@
                 roundStartTime: Date.now(),
                 gameStarted: false,
                 calledBalls: [],
-                soldCount: 0
+                selectedCards: [],
+                balance: balance
             };
             window.rtdbSet(window.rtdbRef(window.db, 'gameState'), newState);
         }
@@ -720,49 +745,51 @@
             setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
-        function saveStateLocally() {
-            localStorage.setItem('y_balance', balance);
-            localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
-            localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
-        }
-
-        function toggleSelect(num, cell) {
+        function toggleSelect(num) {
             const index = selectedCards.indexOf(num);
+            let newBalance = balance;
+            let newSelected = [...selectedCards];
+
             if (index > -1) {
-                selectedCards.splice(index, 1);
-                cell.classList.remove('selected');
-                balance += cardPrice;
-                updateSoldCountOnFirebase(-1);
+                newSelected.splice(index, 1);
+                newBalance += cardPrice;
             } else {
                 if (balance < cardPrice) {
                     showNotification('ባላንስዎ በቂ አይደለም!');
                     return;
                 }
-                if (selectedCards.length >= 2) {
+                if (newSelected.length >= 2) {
                     showNotification('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
-                selectedCards.push(num);
-                cell.classList.add('selected');
-                balance -= cardPrice;
-                updateSoldCountOnFirebase(1);
+                newSelected.push(num);
+                newBalance -= cardPrice;
             }
-            saveStateLocally();
-            updateDisplay();
+
+            window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), {
+                selectedCards: newSelected,
+                balance: newBalance
+            });
         }
 
-        function updateSoldCountOnFirebase(change) {
-            if (!window.db) return;
-            const refPath = window.rtdbRef(window.db, 'gameState/soldCount');
-            window.rtdbGet(refPath).then((snapshot) => {
-                let current = snapshot.val() || 0;
-                window.rtdbSet(refPath, Math.max(0, current + change));
+        function updateUIGridSelection() {
+            document.querySelectorAll('.number-cell').forEach(cell => {
+                let num = parseInt(cell.dataset.number);
+                if (selectedCards.includes(num)) {
+                    cell.classList.add('selected');
+                } else {
+                    cell.classList.remove('selected');
+                }
             });
         }
 
         function updateDisplay() {
             const balEl = document.getElementById('balance-amount');
             if (balEl) balEl.innerText = balance.toFixed(2) + ' ETB';
+            
+            const soldEl = document.getElementById('sold-count');
+            if (soldEl) soldEl.innerText = selectedCards.length;
+
             renderSlot(1, selectedCards[0]);
             renderSlot(2, selectedCards[1]);
         }
@@ -799,20 +826,10 @@
 
         function clearSlot(slotNum) {
             if (slotNum === 1 && selectedCards.length > 0) {
-                const removed = selectedCards.shift();
-                const cell = document.querySelector(`[data-number='${removed}']`);
-                if(cell) cell.classList.remove('selected');
-                balance += cardPrice;
-                updateSoldCountOnFirebase(-1);
+                toggleSelect(selectedCards[0]);
             } else if (slotNum === 2 && selectedCards.length > 1) {
-                const removed = selectedCards.pop();
-                const cell = document.querySelector(`[data-number='${removed}']`);
-                if(cell) cell.classList.remove('selected');
-                balance += cardPrice;
-                updateSoldCountOnFirebase(-1);
+                toggleSelect(selectedCards[1]);
             }
-            saveStateLocally();
-            updateDisplay();
         }
 
         function getBallPrefix(num) {
@@ -870,8 +887,7 @@
             if (ballsVal) ballsVal.innerText = calledBalls.length + '/75';
 
             const userCardsContainer = document.getElementById('activeUserCardsContainer');
-            if (userCardsContainer && userCardsContainer.dataset.rendered !== 'true') {
-                userCardsContainer.dataset.rendered = 'true';
+            if (userCardsContainer) {
                 userCardsContainer.innerHTML = '';
 
                 if (selectedCards.length === 0) {
@@ -931,7 +947,6 @@
             cell.classList.toggle('marked');
             let isMarked = cell.classList.contains('marked');
             markedCellsState[`${cardNum}_${r}_${c}`] = isMarked;
-            saveStateLocally();
         }
 
         function checkBingo(cardNum, calledBalls) {
@@ -990,8 +1005,8 @@
 
             let prize = selectedCards.length * 8 * 8; 
             balance += prize;
+            window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { balance: balance });
             showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-            saveStateLocally();
             setTimeout(() => resetGameOnFirebase(), 2000);
         }
     </script>
