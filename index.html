@@ -5,35 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YejuBingo Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCmpdrWGSTAJUk_muPnBQliZJah7gHOXY",
-            authDomain: "yejubingo-f57a7.firebaseapp.com",
-            databaseURL: "https://yejubingo-f57a7-default-rtdb.firebaseio.com",
-            projectId: "yejubingo-f57a7",
-            storageBucket: "yejubingo-f57a7.appspot.com",
-            messagingSenderId: "871531976284",
-            appId: "1:871531976284:web:8791a06c362c2c8c573899",
-            measurementId: "G-RZ86XL3CDH"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        window.db = db;
-        window.rtdbRef = ref;
-        window.rtdbSet = set;
-        window.rtdbOnValue = onValue;
-        window.rtdbUpdate = update;
-        window.rtdbGet = get;
-        window.firebaseReady = true;
-    </script>
-
     <style>
         * {
             box-sizing: border-box;
@@ -49,6 +20,7 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            padding: 0;
         }
 
         .container {
@@ -71,6 +43,7 @@
             display: flex;
         }
 
+        /* Header Bar */
         .header {
             display: flex;
             align-items: center;
@@ -85,7 +58,7 @@
             gap: 16px;
         }
 
-        .close-btn {
+        .close-btn, .dropdown-arrow, .menu-dots {
             background: none;
             border: none;
             color: #ffffff;
@@ -99,6 +72,13 @@
             color: #ffffff;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* Top Badges Bar (Page 1) */
         .stats-bar {
             display: grid;
             grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr;
@@ -134,6 +114,7 @@
 
         .stat-value { font-size: 12px; font-weight: 700; }
 
+        /* Grid Section Container (Page 1) */
         .grid-wrapper {
             background: #e4e7ed;
             border-top-left-radius: 20px;
@@ -141,13 +122,10 @@
             padding: 12px 8px;
             flex: 1;
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
         }
 
         .grid-container {
-            flex: 1;
+            max-height: 310px;
             overflow-y: auto;
             padding: 4px;
         }
@@ -170,17 +148,16 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
         }
 
         .number-cell.selected {
-            background: #3182ce !important;
-            color: #ffffff !important;
+            background: #3182ce;
+            color: #ffffff;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
             transform: scale(0.96);
         }
 
+        /* Slots Section (Page 1) */
         .slots-section {
             display: flex;
             flex-direction: column;
@@ -236,11 +213,11 @@
             color: #ffffff;
         }
 
-        .mmh-b { background: #2196f3; }
-        .mmh-i { background: #f44336; }
-        .mmh-n { background: #ff9800; }
-        .mmh-g { background: #4caf50; }
-        .mmh-o { background: #9c27b0; }
+        .mmh-b { background: #2196f3; border-radius: 1px; }
+        .mmh-i { background: #f44336; border-radius: 1px; }
+        .mmh-n { background: #ff9800; border-radius: 1px; }
+        .mmh-g { background: #4caf50; border-radius: 1px; }
+        .mmh-o { background: #9c27b0; border-radius: 1px; }
 
         .mini-matrix {
             display: grid;
@@ -266,8 +243,10 @@
         .matrix-cell.free-cell {
             background: #ecc94b;
             color: #744210;
+            font-size: 7px;
         }
 
+        /* PAGE 2 STYLES (Game Play Screen) */
         .game-header-stats {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -414,11 +393,11 @@
             color: #ffffff;
         }
 
-        .umh-b { background: #2196f3; }
-        .umh-i { background: #f44336; }
-        .umh-n { background: #ff9800; }
-        .umh-g { background: #4caf50; }
-        .umh-o { background: #9c27b0; }
+        .umh-b { background: #2196f3; border-radius: 2px; }
+        .umh-i { background: #f44336; border-radius: 2px; }
+        .umh-n { background: #ff9800; border-radius: 2px; }
+        .umh-g { background: #4caf50; border-radius: 2px; }
+        .umh-o { background: #9c27b0; border-radius: 2px; }
 
         .user-matrix {
             display: grid;
@@ -450,6 +429,8 @@
         .um-cell.free-cell {
             background: #ecc94b !important;
             color: #744210 !important;
+            font-size: 9px;
+            font-weight: 900;
         }
 
         .bingo-btn {
@@ -494,12 +475,17 @@
 <body>
 
     <div class="container">
-        <!-- PAGE 1 -->
+        
+        <!-- PAGE 1: BUYING & TIMER PAGE -->
         <div id="page-buy" class="page active">
             <div class="header">
                 <div class="header-left">
                     <button class="close-btn">&#10005;</button>
                     <div class="title">YejuBingo</div>
+                </div>
+                <div class="header-right">
+                    <button class="dropdown-arrow">&#9660;</button>
+                    <button class="menu-dots">&#8942;</button>
                 </div>
             </div>
 
@@ -518,7 +504,7 @@
                 </div>
                 <div class="stat-badge badge-balance">
                     <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                    <span class="stat-value" id="balance-amount">150.00 ETB</span>
+                    <span class="stat-value" id="balance-amount">50.00 ETB</span>
                 </div>
             </div>
 
@@ -542,12 +528,16 @@
             </div>
         </div>
 
-        <!-- PAGE 2 -->
+        <!-- PAGE 2: GAME PLAY PAGE -->
         <div id="page-game" class="page">
             <div class="header">
                 <div class="header-left">
                     <button class="close-btn">&#10005;</button>
                     <div class="title">YejuBingo</div>
+                </div>
+                <div class="header-right">
+                    <button class="dropdown-arrow">&#9660;</button>
+                    <button class="menu-dots">&#8942;</button>
                 </div>
             </div>
 
@@ -560,13 +550,17 @@
             <div class="game-body">
                 <div class="balls-table-container">
                     <div class="bingo-header-row">
-                        <div class="bh-b">B</div><div class="bh-i">I</div><div class="bh-n">N</div><div class="bh-g">G</div><div class="bh-o">O</div>
+                        <div class="bh-b">B</div>
+                        <div class="bh-i">I</div>
+                        <div class="bh-n">N</div>
+                        <div class="bh-g">G</div>
+                        <div class="bh-o">O</div>
                     </div>
                     <div class="balls-grid-1-75" id="ballsGrid1To75"></div>
                 </div>
 
                 <div class="game-main-area">
-                    <div class="recent-balls-bar">
+                    <div class="recent-balls-bar" id="recentBallsBar">
                         <span style="font-size: 8px; font-weight: 700; color: #718096;">RECENT:</span>
                         <div id="recentTagsContainer" style="display: flex; gap: 3px;"></div>
                     </div>
@@ -574,6 +568,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <div id="custom-toast"></div>
@@ -585,11 +580,23 @@
         }
 
         const cardPrice = 10.00;
-        let balance = 150.00;
-        let selectedCards = [];
-        let markedCellsState = {};
-        let cardMatrices = {};
-        let countdownTimer = null;
+        
+        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
+        let balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 50.00;
+        let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
+        let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
+        let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
+        let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
+        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+
+        // Robust Time Management for Background minimization
+        let roundStartTime = localStorage.getItem('y_roundStartTime');
+        if (!roundStartTime) {
+            roundStartTime = Date.now();
+            localStorage.setItem('y_roundStartTime', roundStartTime);
+        } else {
+            roundStartTime = parseInt(roundStartTime);
+        }
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -601,168 +608,175 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        // Generate 250 matrices immediately
-        for (let i = 1; i <= 250; i++) {
-            let matrix = [];
-            let colUsed = Array.from({length: 5}, () => new Set());
-            for (let r = 0; r < 5; r++) {
-                let row = [];
-                let c = 0;
-                while (c < 5) {
-                    if (r === 2 && c === 2) {
-                        row.push('★');
-                    } else {
-                        let randNum = generateColumnNumber(c);
-                        if (!colUsed[c].has(randNum)) {
+        if (Object.keys(cardMatrices).length === 0) {
+            for (let i = 1; i <= 250; i++) {
+                let matrix = [];
+                let colUsed = Array.from({length: 5}, () => new Set());
+                for (let r = 0; r < 5; r++) {
+                    let row = [];
+                    for (let c = 0; c < 5; c++) {
+                        if (r === 2 && c === 2) {
+                            row.push('★');
+                        } else {
+                            let randNum;
+                            do {
+                                randNum = generateColumnNumber(c);
+                            } while (colUsed[c].has(randNum));
                             colUsed[c].add(randNum);
                             row.push(randNum);
-                        } else {
-                            continue;
                         }
                     }
-                    c++;
+                    matrix.push(row);
                 }
-                matrix.push(row);
+                cardMatrices[i] = matrix;
             }
-            cardMatrices[i] = matrix;
+            localStorage.setItem('y_cardMatrices', JSON.stringify(cardMatrices));
         }
 
-        // Render Grid Immediately and Safely
-        function renderGrid() {
-            const gridEl = document.getElementById('numbersGrid');
-            if (gridEl && gridEl.children.length === 0) {
-                for (let i = 1; i <= 250; i++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'number-cell';
-                    cell.innerText = i;
-                    cell.dataset.number = i;
-                    cell.addEventListener('click', () => {
-                        toggleSelect(i);
-                    });
-                    gridEl.appendChild(cell);
-                }
-            }
+        const gridEl = document.getElementById('numbersGrid');
+        for (let i = 1; i <= 250; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'number-cell';
+            cell.innerText = i;
+            cell.dataset.number = i;
+            if (selectedCards.includes(i)) cell.classList.add('selected');
+            cell.addEventListener('click', () => toggleSelect(i, cell));
+            gridEl.appendChild(cell);
         }
 
-        document.addEventListener("DOMContentLoaded", renderGrid);
+        updateDisplay();
 
-        // Initialize Firebase Sync loop safely after DOM is ready
-        const checkFirebaseInterval = setInterval(() => {
-            if (window.firebaseReady) {
-                clearInterval(checkFirebaseInterval);
-                renderGrid(); // ማረጋገጫ ያደርጋል
-                initFirebaseSync();
-            }
-        }, 50);
+        let mainInterval = null;
 
-        function initFirebaseSync() {
-            const db = window.db;
-            const gameRef = window.rtdbRef(db, 'gameState');
+        // Check exact elapsed time on load/resume to prevent background freezing bugs
+        evaluateGameStateByTime();
 
-            window.rtdbOnValue(gameRef, (snapshot) => {
-                let state = snapshot.val();
-                const now = Date.now();
+        function evaluateGameStateByTime() {
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
 
-                if (!state) {
-                    state = {
-                        roundStartTime: now,
-                        gameStarted: false,
-                        calledBalls: [],
-                        selectedCards: [],
-                        balance: 150.00
-                    };
-                    window.rtdbSet(gameRef, state);
+            if (!gameStarted) {
+                // Lobby timer phase (40 seconds total)
+                let remainingBuyTime = 40 - elapsedSeconds;
+                if (remainingBuyTime <= 0) {
+                    // Time expired while app was minimized, start game automatically
+                    gameStarted = true;
+                    localStorage.setItem('y_gameStarted', 'true');
+                    // Reset round start time for game play phase
+                    roundStartTime = Date.now() - (selectedCards.length > 0 ? 0 : 0); // adjust timing
+                    switchToGamePage();
+                } else {
+                    startGlobalLoop();
+                }
+            } else {
+                // Game play phase (each ball takes 5 seconds)
+                let gameElapsed = elapsedSeconds - 40;
+                if (gameElapsed < 0) gameElapsed = 0;
+                let expectedBallsCount = Math.floor(gameElapsed / 5);
+
+                if (expectedBallsCount > 75) expectedBallsCount = 75;
+
+                // If background missed calling some balls, catch up automatically right now!
+                if (calledBalls.length < expectedBallsCount && calledBalls.length < 75) {
+                    let allPossibleBalls = Array.from({length: 75}, (_, i) => i + 1);
+                    // Shuffle deterministically or pick remaining missing ones randomly
+                    let missingCount = expectedBallsCount - calledBalls.length;
+                    for (let m = 0; m < missingCount; m++) {
+                        let available = allPossibleBalls.filter(n => !calledBalls.includes(n));
+                        if (available.length === 0) break;
+                        let randIndex = Math.floor(Math.random() * available.length);
+                        calledBalls.push(available[randIndex]);
+                    }
+                    localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
+                }
+
+                if (calledBalls.length >= 75) {
+                    showNotification('ጨዋታው አልቋል! ወደ ቀጣዩ ራውንድ በመመለስ ላይ...');
+                    setTimeout(() => resetGameLoopLocally(), 1500);
                     return;
                 }
 
-                balance = state.balance !== undefined ? state.balance : 150.00;
-                selectedCards = state.selectedCards || [];
-                
-                renderGrid();
-                updateUIGridSelection();
-                updateDisplay();
-                handleGameState(state);
-            });
+                switchToGamePage();
+            }
         }
 
-        function handleGameState(state) {
-            const now = Date.now();
-            
-            if (!state.roundStartTime) {
-                state.roundStartTime = now;
-                window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { roundStartTime: now });
-            }
+        function startGlobalLoop() {
+            if (mainInterval) clearInterval(mainInterval);
+            mainInterval = setInterval(() => {
+                const now = Date.now();
+                const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
 
-            const elapsedSeconds = Math.floor((now - state.roundStartTime) / 1000);
-
-            if (!state.gameStarted) {
-                let timeLeft = 40 - elapsedSeconds;
-                if (timeLeft < 0) timeLeft = 0;
-
-                if (countdownTimer) clearInterval(countdownTimer);
-
-                countdownTimer = setInterval(() => {
-                    let currentNow = Date.now();
-                    let currentElapsed = Math.floor((currentNow - state.roundStartTime) / 1000);
-                    let currentLeft = 40 - currentElapsed;
-
+                if (!gameStarted) {
+                    let timeLeft = 40 - elapsedSeconds;
                     const timerEl = document.getElementById('timer');
-                    if (timerEl) timerEl.innerText = Math.max(0, currentLeft) + 's';
+                    if (timerEl) timerEl.innerText = Math.max(0, timeLeft) + 's';
 
-                    if (currentLeft <= 0) {
-                        clearInterval(countdownTimer);
-                        window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { gameStarted: true });
+                    if (timeLeft <= 0) {
+                        clearInterval(mainInterval);
+                        gameStarted = true;
+                        localStorage.setItem('y_gameStarted', 'true');
+                        roundStartTime = Date.now(); // reset for game
+                        switchToGamePage();
                     }
-                }, 1000);
-
-                const timerEl = document.getElementById('timer');
-                if (timerEl) timerEl.innerText = timeLeft + 's';
-
-                const soldEl = document.getElementById('sold-count');
-                if (soldEl) soldEl.innerText = selectedCards.length;
-
-                if (timeLeft <= 0) {
-                    window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { gameStarted: true });
                 } else {
-                    switchToBuyPage();
-                }
-            } else {
-                if (countdownTimer) clearInterval(countdownTimer);
+                    // Game loop calling a ball every 5 seconds
+                    let gameElapsed = Math.floor((now - roundStartTime) / 1000);
+                    let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
 
-                let gameElapsed = elapsedSeconds - 40;
-                if (gameElapsed < 0) gameElapsed = 0;
-                let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 4) + 1);
+                    if (targetBallsCount > calledBalls.length && calledBalls.length < 75) {
+                        let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
+                        if (availableBalls.length > 0) {
+                            let randomIndex = Math.floor(Math.random() * availableBalls.length);
+                            let drawnBall = availableBalls[randomIndex];
+                            calledBalls.push(drawnBall);
+                            localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
 
-                let calledBalls = state.calledBalls || [];
+                            const targetCell = document.getElementById(`ball-num-${drawnBall}`);
+                            if (targetCell) targetCell.classList.add('called');
 
-                if (calledBalls.length < targetBallsCount && calledBalls.length < 75) {
-                    let available = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
-                    if (available.length > 0) {
-                        let randIdx = Math.floor(Math.random() * available.length);
-                        calledBalls.push(available[randIdx]);
-                        window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { calledBalls: calledBalls });
+                            // Auto mark user cards
+                            selectedCards.forEach(cardNum => {
+                                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+                                if (!matrixBox) return;
+                                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
+                                    let val = cell.dataset.val;
+                                    if (val !== '★' && parseInt(val) === drawnBall) {
+                                        cell.classList.add('marked');
+                                        markedCellsState[`${cardNum}_${cell.dataset.row}_${cell.dataset.col}`] = true;
+                                    }
+                                });
+                            });
+                            saveState();
+
+                            updateRecentTags();
+                            const bVal = document.getElementById('balls-val');
+                            if (bVal) bVal.innerText = calledBalls.length + '/75';
+
+                            // Check win
+                            let hasWon = false;
+                            selectedCards.forEach(cardNum => {
+                                if (checkWinningCondition(cardNum)) {
+                                    hasWon = true;
+                                    if (mainInterval) clearInterval(mainInterval);
+                                    let prize = soldCount * 8;
+                                    balance += prize;
+                                    showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+                                    saveState();
+                                    setTimeout(() => resetGameLoopLocally(), 2500);
+                                }
+                            });
+
+                            if (hasWon) return;
+                        }
+                    }
+
+                    if (calledBalls.length >= 75) {
+                        if (mainInterval) clearInterval(mainInterval);
+                        showNotification('ሁሉም 75 ቦሎች ተጠርተዋል! ጨዋታው አብቅቷል።');
+                        setTimeout(() => resetGameLoopLocally(), 2000);
                     }
                 }
-
-                switchToGamePage(calledBalls, selectedCards.length);
-
-                if (calledBalls.length >= 75) {
-                    setTimeout(() => {
-                        resetGameOnFirebase();
-                    }, 4000);
-                }
-            }
-        }
-
-        function resetGameOnFirebase() {
-            const newState = {
-                roundStartTime: Date.now(),
-                gameStarted: false,
-                calledBalls: [],
-                selectedCards: [],
-                balance: balance
-            };
-            window.rtdbSet(window.rtdbRef(window.db, 'gameState'), newState);
+            }, 1000);
         }
 
         function showNotification(message) {
@@ -773,51 +787,44 @@
             setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
-        function toggleSelect(num) {
-            const index = selectedCards.indexOf(num);
-            let newBalance = balance;
-            let newSelected = [...selectedCards];
+        function saveState() {
+            localStorage.setItem('y_soldCount', soldCount);
+            localStorage.setItem('y_balance', balance);
+            localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
+        }
 
+        function toggleSelect(num, cell) {
+            if (gameStarted) return;
+            const index = selectedCards.indexOf(num);
             if (index > -1) {
-                newSelected.splice(index, 1);
-                newBalance += cardPrice;
+                selectedCards.splice(index, 1);
+                cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             } else {
-                if (balance < cardPrice) {
-                    showNotification('ባላንስዎ በቂ አይደለም!');
+                if (balance <= 0) {
+                    showNotification('ባላንስዎ ስለተጠናቀቀ ተጨማሪ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
-                if (newSelected.length >= 2) {
+                if (selectedCards.length >= 2) {
                     showNotification('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
-                newSelected.push(num);
-                newBalance -= cardPrice;
+                selectedCards.push(num);
+                cell.classList.add('selected');
+                balance -= cardPrice;
+                soldCount++;
             }
-
-            window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), {
-                selectedCards: newSelected,
-                balance: newBalance
-            });
-        }
-
-        function updateUIGridSelection() {
-            document.querySelectorAll('.number-cell').forEach(cell => {
-                let num = parseInt(cell.dataset.number);
-                if (selectedCards.includes(num)) {
-                    cell.classList.add('selected');
-                } else {
-                    cell.classList.remove('selected');
-                }
-            });
+            saveState();
+            updateDisplay();
         }
 
         function updateDisplay() {
-            const balEl = document.getElementById('balance-amount');
-            if (balEl) balEl.innerText = balance.toFixed(2) + ' ETB';
-            
             const soldEl = document.getElementById('sold-count');
-            if (soldEl) soldEl.innerText = selectedCards.length;
-
+            const balEl = document.getElementById('balance-amount');
+            if (soldEl) soldEl.innerText = soldCount;
+            if (balEl) balEl.innerText = balance.toFixed(2) + ' ETB';
             renderSlot(1, selectedCards[0]);
             renderSlot(2, selectedCards[1]);
         }
@@ -830,7 +837,11 @@
                 let matrixHtml = `<div class="slot-text">SLOT ${slotNum} (CARD #${cardNum})</div>`;
                 matrixHtml += `<div class="mini-matrix-wrapper">`;
                 matrixHtml += `<div class="mini-matrix-header">
-                    <div class="mmh-b">B</div><div class="mmh-i">I</div><div class="mmh-n">N</div><div class="mmh-g">G</div><div class="mmh-o">O</div>
+                    <div class="mmh-b">B</div>
+                    <div class="mmh-i">I</div>
+                    <div class="mmh-n">N</div>
+                    <div class="mmh-g">G</div>
+                    <div class="mmh-o">O</div>
                 </div>`;
                 matrixHtml += `<div class="mini-matrix">`;
                 const matrix = cardMatrices[cardNum];
@@ -853,11 +864,22 @@
         }
 
         function clearSlot(slotNum) {
+            if (gameStarted) return;
             if (slotNum === 1 && selectedCards.length > 0) {
-                toggleSelect(selectedCards[0]);
+                const removed = selectedCards.shift();
+                const cell = document.querySelector(`[data-number='${removed}']`);
+                if(cell) cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             } else if (slotNum === 2 && selectedCards.length > 1) {
-                toggleSelect(selectedCards[1]);
+                const removed = selectedCards.pop();
+                const cell = document.querySelector(`[data-number='${removed}']`);
+                if(cell) cell.classList.remove('selected');
+                balance += cardPrice;
+                soldCount--;
             }
+            saveState();
+            updateDisplay();
         }
 
         function getBallPrefix(num) {
@@ -868,14 +890,7 @@
             return 'O' + num;
         }
 
-        function switchToBuyPage() {
-            const pageBuy = document.getElementById('page-buy');
-            const pageGame = document.getElementById('page-game');
-            if (pageGame) pageGame.classList.remove('active');
-            if (pageBuy) pageBuy.classList.add('active');
-        }
-
-        function switchToGamePage(calledBalls, soldCount) {
+        function switchToGamePage() {
             const pageBuy = document.getElementById('page-buy');
             const pageGame = document.getElementById('page-game');
             if (pageBuy) pageBuy.classList.remove('active');
@@ -888,7 +903,7 @@
             if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
-            if (bGrid && bGrid.children.length === 0) {
+            if (bGrid) {
                 bGrid.innerHTML = '';
                 for (let r = 1; r <= 15; r++) {
                     for (let c = 0; c < 5; c++) {
@@ -897,20 +912,15 @@
                         bCell.className = 'b-cell';
                         bCell.innerText = num;
                         bCell.id = `ball-num-${num}`;
+                        if (calledBalls.includes(num)) {
+                            bCell.classList.add('called');
+                        }
                         bGrid.appendChild(bCell);
                     }
                 }
             }
 
-            for (let i = 1; i <= 75; i++) {
-                const targetCell = document.getElementById(`ball-num-${i}`);
-                if (targetCell) {
-                    if (calledBalls.includes(i)) targetCell.classList.add('called');
-                    else targetCell.classList.remove('called');
-                }
-            }
-
-            updateRecentTags(calledBalls);
+            updateRecentTags();
             const ballsVal = document.getElementById('balls-val');
             if (ballsVal) ballsVal.innerText = calledBalls.length + '/75';
 
@@ -927,7 +937,11 @@
                         
                         let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div>`;
                         cardHtml += `<div class="user-matrix-header">
-                            <div class="umh-b">B</div><div class="umh-i">I</div><div class="umh-n">N</div><div class="umh-g">G</div><div class="umh-o">O</div>
+                            <div class="umh-b">B</div>
+                            <div class="umh-i">I</div>
+                            <div class="umh-n">N</div>
+                            <div class="umh-g">G</div>
+                            <div class="umh-o">O</div>
                         </div>`;
                         cardHtml += `<div class="user-matrix" id="matrix-box-${cardNum}">`;
                         
@@ -946,15 +960,17 @@
                                 }
                             }
                         }
-                        cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum}, [${calledBalls.join(',')}])">BINGO!</button>`;
+                        cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
                         cardBox.innerHTML = cardHtml;
                         userCardsContainer.appendChild(cardBox);
                     });
                 }
             }
+
+            startGlobalLoop();
         }
 
-        function updateRecentTags(calledBalls) {
+        function updateRecentTags() {
             const container = document.getElementById('recentTagsContainer');
             if (!container) return;
             container.innerHTML = '';
@@ -975,9 +991,65 @@
             cell.classList.toggle('marked');
             let isMarked = cell.classList.contains('marked');
             markedCellsState[`${cardNum}_${r}_${c}`] = isMarked;
+            saveState();
         }
 
-        function checkBingo(cardNum, calledBalls) {
+        function checkWinningCondition(cardNum) {
+            const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+            if (!matrixBox) return false;
+            const cells = matrixBox.querySelectorAll('.um-cell');
+            let grid = [];
+            let row = [];
+            
+            cells.forEach((cell, index) => {
+                let val = cell.dataset.val;
+                row.push({
+                    marked: cell.classList.contains('marked'),
+                    value: val === '★' ? '★' : parseInt(val)
+                });
+                if ((index + 1) % 5 === 0) {
+                    grid.push(row);
+                    row = [];
+                }
+            });
+
+            let winningLines = [];
+
+            // Rows
+            for (let r = 0; r < 5; r++) {
+                if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
+            }
+            // Columns
+            for (let c = 0; c < 5; c++) {
+                if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
+            }
+            // Diagonals
+            if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
+            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
+
+            if (winningLines.length === 0) return false;
+
+            let uncalledNumbers = [];
+            winningLines.forEach(line => {
+                let lineCells = [];
+                if (line.type === 'row') lineCells = grid[line.index];
+                else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
+                else if (line.type === 'diag1') lineCells = [grid[0][0], grid[1][1], grid[2][2], grid[3][3], grid[4][4]];
+                else if (line.type === 'diag2') lineCells = [grid[0][4], grid[1][3], grid[2][2], grid[3][1], grid[4][0]];
+
+                lineCells.forEach(cell => {
+                    if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
+                        if (!uncalledNumbers.includes(cell.value)) {
+                            uncalledNumbers.push(cell.value);
+                        }
+                    }
+                });
+            });
+
+            return uncalledNumbers.length === 0;
+        }
+
+        function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
             const cells = matrixBox.querySelectorAll('.um-cell');
@@ -997,6 +1069,7 @@
             });
 
             let winningLines = [];
+
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
@@ -1007,7 +1080,7 @@
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
             if (winningLines.length === 0) {
-                showNotification(`❌ ካርድ #${cardNum}: መስመር ሙሉ በሙሉ አልተሟላም!`);
+                showNotification(`❌ ካርድ #${cardNum}: አግድም፣ ቁመት ወይም ሰያፍ መስመር ሙሉ በሙሉ አልተሟላም!`);
                 return;
             }
 
@@ -1021,7 +1094,9 @@
 
                 lineCells.forEach(cell => {
                     if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
-                        if (!uncalledNumbers.includes(cell.value)) uncalledNumbers.push(cell.value);
+                        if (!uncalledNumbers.includes(cell.value)) {
+                            uncalledNumbers.push(cell.value);
+                        }
                     }
                 });
             });
@@ -1031,11 +1106,41 @@
                 return;
             }
 
-            let prize = selectedCards.length * 8 * 8; 
+            if (mainInterval) clearInterval(mainInterval);
+            let prize = soldCount * 8;
             balance += prize;
-            window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { balance: balance });
-            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-            setTimeout(() => resetGameOnFirebase(), 2000);
+            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+            saveState();
+            setTimeout(() => resetGameLoopLocally(), 2000);
+        }
+
+        function resetGameLoopLocally() {
+            if (mainInterval) clearInterval(mainInterval);
+            
+            // Reset everything for the next loop
+            localStorage.removeItem('y_gameStarted');
+            localStorage.removeItem('y_calledBalls');
+            localStorage.removeItem('y_selectedCards');
+            localStorage.removeItem('y_markedCellsState');
+            localStorage.setItem('y_roundStartTime', Date.now());
+            localStorage.setItem('y_soldCount', '0');
+
+            gameStarted = false;
+            calledBalls = [];
+            selectedCards = [];
+            markedCellsState = {};
+            soldCount = 0;
+            roundStartTime = Date.now();
+
+            document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
+            updateDisplay();
+
+            const pageBuy = document.getElementById('page-buy');
+            const pageGame = document.getElementById('page-game');
+            if (pageGame) pageGame.classList.remove('active');
+            if (pageBuy) pageBuy.classList.add('active');
+
+            startGlobalLoop();
         }
     </script>
 </body>
