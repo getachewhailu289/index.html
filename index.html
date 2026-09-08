@@ -141,12 +141,16 @@
             padding: 12px 8px;
             flex: 1;
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .grid-container {
-            max-height: 310px;
+            flex: 1;
             overflow-y: auto;
             padding: 4px;
+            max-height: none; /* እንዲስተካከል ተደርጓል */
         }
 
         .numbers-grid {
@@ -169,6 +173,7 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            z-index: 5; /* ክሊክ እንዲደረግለት ተደርጓል */
         }
 
         .number-cell.selected {
@@ -621,7 +626,7 @@
             cardMatrices[i] = matrix;
         }
 
-        // Render Grid once DOM is ready
+        // Render Grid once DOM is ready & safely bind clicks
         document.addEventListener("DOMContentLoaded", () => {
             const gridEl = document.getElementById('numbersGrid');
             if (gridEl) {
@@ -631,7 +636,11 @@
                     cell.className = 'number-cell';
                     cell.innerText = i;
                     cell.dataset.number = i;
-                    cell.onclick = () => toggleSelect(i);
+                    // Direct Event Listener გამოყენቷል (ከ onclick ጋር ሲወዳደር አስተማማኝ ነው)
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleSelect(i);
+                    });
                     gridEl.appendChild(cell);
                 }
             }
