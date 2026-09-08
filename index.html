@@ -167,11 +167,12 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            user-select: none;
         }
 
         .number-cell.selected {
-            background: #3182ce;
-            color: #ffffff;
+            background: #3182ce !important;
+            color: #ffffff !important;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
             transform: scale(0.96);
         }
@@ -584,7 +585,7 @@
         let selectedCards = [];
         let markedCellsState = {};
         let cardMatrices = {};
-        let globalTimerInterval = null;
+        let countdownTimer = null;
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -596,6 +597,7 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
+        // Generate 250 matrices
         for (let i = 1; i <= 250; i++) {
             let matrix = [];
             let colUsed = Array.from({length: 5}, () => new Set());
@@ -618,13 +620,17 @@
             cardMatrices[i] = matrix;
         }
 
+        // Render 1-250 grid
         const gridEl = document.getElementById('numbersGrid');
+        gridEl.innerHTML = '';
         for (let i = 1; i <= 250; i++) {
             const cell = document.createElement('div');
             cell.className = 'number-cell';
             cell.innerText = i;
             cell.dataset.number = i;
-            cell.addEventListener('click', () => toggleSelect(i));
+            cell.addEventListener('click', () => {
+                toggleSelect(i);
+            });
             gridEl.appendChild(cell);
         }
 
@@ -633,7 +639,7 @@
                 clearInterval(checkFirebaseInterval);
                 initFirebaseSync();
             }
-        }, 200);
+        }, 100);
 
         function initFirebaseSync() {
             const db = window.db;
@@ -666,30 +672,38 @@
 
         function handleGameState(state) {
             const now = Date.now();
+            
+            // જો roundStartTime არ არსებობს ან ძველია, განვაახლოთ
+            if (!state.roundStartTime) {
+                state.roundStartTime = now;
+                window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { roundStartTime: now });
+            }
+
             const elapsedSeconds = Math.floor((now - state.roundStartTime) / 1000);
 
             if (!state.gameStarted) {
                 let timeLeft = 40 - elapsedSeconds;
-                
-                if (globalTimerInterval) clearInterval(globalTimerInterval);
-                
-                globalTimerInterval = setInterval(() => {
+                if (timeLeft < 0) timeLeft = 0;
+
+                if (countdownTimer) clearInterval(countdownTimer);
+
+                countdownTimer = setInterval(() => {
                     let currentNow = Date.now();
                     let currentElapsed = Math.floor((currentNow - state.roundStartTime) / 1000);
                     let currentLeft = 40 - currentElapsed;
-                    
+
                     const timerEl = document.getElementById('timer');
                     if (timerEl) timerEl.innerText = Math.max(0, currentLeft) + 's';
-                    
+
                     if (currentLeft <= 0) {
-                        clearInterval(globalTimerInterval);
+                        clearInterval(countdownTimer);
                         window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { gameStarted: true });
                     }
                 }, 1000);
 
                 const timerEl = document.getElementById('timer');
-                if (timerEl) timerEl.innerText = Math.max(0, timeLeft) + 's';
-                
+                if (timerEl) timerEl.innerText = timeLeft + 's';
+
                 const soldEl = document.getElementById('sold-count');
                 if (soldEl) soldEl.innerText = selectedCards.length;
 
@@ -699,11 +713,11 @@
                     switchToBuyPage();
                 }
             } else {
-                if (globalTimerInterval) clearInterval(globalTimerInterval);
-                
+                if (countdownTimer) clearInterval(countdownTimer);
+
                 let gameElapsed = elapsedSeconds - 40;
                 if (gameElapsed < 0) gameElapsed = 0;
-                let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
+                let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 4) + 1);
 
                 let calledBalls = state.calledBalls || [];
 
@@ -721,7 +735,7 @@
                 if (calledBalls.length >= 75) {
                     setTimeout(() => {
                         resetGameOnFirebase();
-                    }, 3000);
+                    }, 4000);
                 }
             }
         }
