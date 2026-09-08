@@ -168,6 +168,7 @@
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .number-cell.selected {
@@ -597,7 +598,7 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        // Generate 250 matrices
+        // Generate 250 matrices immediately
         for (let i = 1; i <= 250; i++) {
             let matrix = [];
             let colUsed = Array.from({length: 5}, () => new Set());
@@ -620,26 +621,29 @@
             cardMatrices[i] = matrix;
         }
 
-        // Render 1-250 grid
-        const gridEl = document.getElementById('numbersGrid');
-        gridEl.innerHTML = '';
-        for (let i = 1; i <= 250; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'number-cell';
-            cell.innerText = i;
-            cell.dataset.number = i;
-            cell.addEventListener('click', () => {
-                toggleSelect(i);
-            });
-            gridEl.appendChild(cell);
-        }
+        // Render Grid once DOM is ready
+        document.addEventListener("DOMContentLoaded", () => {
+            const gridEl = document.getElementById('numbersGrid');
+            if (gridEl) {
+                gridEl.innerHTML = '';
+                for (let i = 1; i <= 250; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'number-cell';
+                    cell.innerText = i;
+                    cell.dataset.number = i;
+                    cell.onclick = () => toggleSelect(i);
+                    gridEl.appendChild(cell);
+                }
+            }
+        });
 
+        // Initialize Firebase Sync loop
         const checkFirebaseInterval = setInterval(() => {
             if (window.firebaseReady) {
                 clearInterval(checkFirebaseInterval);
                 initFirebaseSync();
             }
-        }, 100);
+        }, 50);
 
         function initFirebaseSync() {
             const db = window.db;
@@ -673,7 +677,6 @@
         function handleGameState(state) {
             const now = Date.now();
             
-            // જો roundStartTime არ არსებობს ან ძველია, განვაახლოთ
             if (!state.roundStartTime) {
                 state.roundStartTime = now;
                 window.rtdbUpdate(window.rtdbRef(window.db, 'gameState'), { roundStartTime: now });
