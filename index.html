@@ -504,7 +504,7 @@
                 </div>
                 <div class="stat-badge badge-balance">
                     <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                    <span class="stat-value" id="balance-amount">50.00 ETB</span>
+                    <span class="stat-value" id="balance-amount">0.00 ETB</span>
                 </div>
             </div>
 
@@ -582,12 +582,42 @@
         const cardPrice = 10.00;
         
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
-        let balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 50.00;
+        let balance = 0.00; // ከሰርቨር በትክክል እንዲጫን ይደረጋል
         let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+
+        // የቴሌግራም ዩዘር ID ማግኘት
+        let telegramUserId = null;
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+            telegramUserId = window.Telegram.WebApp.initDataUnsafe.user.id;
+        }
+
+        // ትክክለኛውን ባላንስ ከሰርቨር (users.json) ማምጣት
+        async function fetchUserBalance() {
+            if (!telegramUserId) {
+                // ብራውዘር ላይ ከቴሌግራም ውጭ ሲከፈት ከ LocalStorage እንዲጠቀም
+                balance = localStorage.getItem('y_balance') ? parseFloat(localStorage.getItem('y_balance')) : 0.00;
+                updateDisplay();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/balance?telegram_id=${telegramUserId}`);
+                const data = await response.json();
+                if (data.success) {
+                    balance = data.balance; // ከቦቱ ዳታቤዝ የመጣው ትክክለኛ ባላንስ (ဥទ. 450)
+                } else {
+                    balance = 0.00;
+                }
+            } catch (error) {
+                console.error("ባላንስ ማምጣት አልተቻለም:", error);
+                balance = 0.00;
+            }
+            updateDisplay();
+        }
 
         // Robust Time Management for Background minimization
         let roundStartTime = localStorage.getItem('y_roundStartTime');
@@ -644,7 +674,8 @@
             gridEl.appendChild(cell);
         }
 
-        updateDisplay();
+        // ከሰርቨር ባላንሱን አምጥቶ ማሳየት
+        fetchUserBalance();
 
         let mainInterval = null;
 
@@ -656,30 +687,24 @@
             const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
 
             if (!gameStarted) {
-                // Lobby timer phase (40 seconds total)
                 let remainingBuyTime = 40 - elapsedSeconds;
                 if (remainingBuyTime <= 0) {
-                    // Time expired while app was minimized, start game automatically
                     gameStarted = true;
                     localStorage.setItem('y_gameStarted', 'true');
-                    // Reset round start time for game play phase
-                    roundStartTime = Date.now() - (selectedCards.length > 0 ? 0 : 0); // adjust timing
+                    roundStartTime = Date.now();
                     switchToGamePage();
                 } else {
                     startGlobalLoop();
                 }
             } else {
-                // Game play phase (each ball takes 5 seconds)
                 let gameElapsed = elapsedSeconds - 40;
                 if (gameElapsed < 0) gameElapsed = 0;
                 let expectedBallsCount = Math.floor(gameElapsed / 5);
 
                 if (expectedBallsCount > 75) expectedBallsCount = 75;
 
-                // If background missed calling some balls, catch up automatically right now!
                 if (calledBalls.length < expectedBallsCount && calledBalls.length < 75) {
                     let allPossibleBalls = Array.from({length: 75}, (_, i) => i + 1);
-                    // Shuffle deterministically or pick remaining missing ones randomly
                     let missingCount = expectedBallsCount - calledBalls.length;
                     for (let m = 0; m < missingCount; m++) {
                         let available = allPossibleBalls.filter(n => !calledBalls.includes(n));
@@ -715,11 +740,10 @@
                         clearInterval(mainInterval);
                         gameStarted = true;
                         localStorage.setItem('y_gameStarted', 'true');
-                        roundStartTime = Date.now(); // reset for game
+                        roundStartTime = Date.now();
                         switchToGamePage();
                     }
                 } else {
-                    // Game loop calling a ball every 5 seconds
                     let gameElapsed = Math.floor((now - roundStartTime) / 1000);
                     let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
 
@@ -734,7 +758,6 @@
                             const targetCell = document.getElementById(`ball-num-${drawnBall}`);
                             if (targetCell) targetCell.classList.add('called');
 
-                            // Auto mark user cards
                             selectedCards.forEach(cardNum => {
                                 const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
                                 if (!matrixBox) return;
@@ -752,7 +775,6 @@
                             const bVal = document.getElementById('balls-val');
                             if (bVal) bVal.innerText = calledBalls.length + '/75';
 
-                            // Check win
                             let hasWon = false;
                             selectedCards.forEach(cardNum => {
                                 if (checkWinningCondition(cardNum)) {
@@ -789,7 +811,6 @@
 
         function saveState() {
             localStorage.setItem('y_soldCount', soldCount);
-            localStorage.setItem('y_balance', balance);
             localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
@@ -803,8 +824,8 @@
                 balance += cardPrice;
                 soldCount--;
             } else {
-                if (balance <= 0) {
-                    showNotification('ባላንስዎ ስለተጠናቀቀ ተጨማሪ ካርድ መምረጥ አይችሉም!');
+                if (balance < cardPrice) {
+                    showNotification('ባላንስዎ በቂ ስላልሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 if (selectedCards.length >= 2) {
@@ -1015,15 +1036,12 @@
 
             let winningLines = [];
 
-            // Rows
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
-            // Columns
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
             }
-            // Diagonals
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
@@ -1117,7 +1135,6 @@
         function resetGameLoopLocally() {
             if (mainInterval) clearInterval(mainInterval);
             
-            // Reset everything for the next loop
             localStorage.removeItem('y_gameStarted');
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem('y_selectedCards');
