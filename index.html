@@ -574,9 +574,11 @@
             window.Telegram.WebApp.expand();
         }
 
+        // ከቴሌግራም ዌብ አፕ ዩዘር መረጃውን በትክክል ለመቀበል
         const webAppUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         let userTelegramId = webAppUser?.id;
 
+        // ዩዘር ਆይዲ ከሌለ ከ URL Parameters (Query String) ለመቀበል መሞከሪያ
         if (!userTelegramId) {
             const urlParams = new URLSearchParams(window.location.search);
             userTelegramId = urlParams.get('telegram_id') || localStorage.getItem('y_saved_telegram_id');
@@ -588,30 +590,14 @@
             userTelegramId = "guest_user";
         }
 
+        // የሰርቨርዎ ሊንክ
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
         const cardPrice = 10.00;
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
         let balance = 0.00;
-        let serverTimeOffset = 0; // የሰርቨር እና የስልክ ሰዓት ልዩነት ማስተካከያ[cite: 15]
 
-        // የሰርቨር ሰዓትን ከሰርቨር ጋር በማመሳሰል ማምጣት[cite: 15]
-        async function syncServerTime() {
-            try {
-                const res = await fetch(`${SERVER_URL}/api/server-time`);
-                const data = await res.json();
-                if (data.success) {
-                    serverTimeOffset = data.serverTime - Date.now();
-                }
-            } catch (err) {
-                console.log('የሰርቨር ሰዓት ማምጣት አልተቻለም:', err);
-            }
-        }
-
-        function getCurrentServerTime() {
-            return Date.now() + serverTimeOffset;
-        }
-
+        // ከሰርቨር የተጠቃሚውን ባላንስ በቀጥታ ማምጣት
         async function fetchServerBalance() {
             try {
                 const users = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
@@ -625,13 +611,7 @@
             }
         }
 
-        async function initApp() {
-            await syncServerTime();
-            await fetchServerBalance();
-            evaluateGameStateByTime();
-        }
-
-        initApp();
+        fetchServerBalance();
 
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
@@ -641,7 +621,7 @@
 
         let roundStartTime = localStorage.getItem('y_roundStartTime');
         if (!roundStartTime) {
-            roundStartTime = getCurrentServerTime();
+            roundStartTime = Date.now();
             localStorage.setItem('y_roundStartTime', roundStartTime);
         } else {
             roundStartTime = parseInt(roundStartTime);
@@ -696,9 +676,10 @@
         updateDisplay();
 
         let mainInterval = null;
+        evaluateGameStateByTime();
 
         function evaluateGameStateByTime() {
-            const now = getCurrentServerTime();
+            const now = Date.now();
             const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
 
             if (!gameStarted) {
@@ -706,8 +687,7 @@
                 if (remainingBuyTime <= 0) {
                     gameStarted = true;
                     localStorage.setItem('y_gameStarted', 'true');
-                    roundStartTime = getCurrentServerTime();
-                    localStorage.setItem('y_roundStartTime', roundStartTime);
+                    roundStartTime = Date.now();
                     switchToGamePage();
                 } else {
                     startGlobalLoop();
@@ -744,7 +724,7 @@
         function startGlobalLoop() {
             if (mainInterval) clearInterval(mainInterval);
             mainInterval = setInterval(() => {
-                const now = getCurrentServerTime();
+                const now = Date.now();
                 const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
 
                 if (!gameStarted) {
@@ -756,8 +736,7 @@
                         clearInterval(mainInterval);
                         gameStarted = true;
                         localStorage.setItem('y_gameStarted', 'true');
-                        roundStartTime = getCurrentServerTime();
-                        localStorage.setItem('y_roundStartTime', roundStartTime);
+                        roundStartTime = Date.now();
                         switchToGamePage();
                     }
                 } else {
@@ -849,11 +828,15 @@
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
+        // ---------------------------------------------------------
+        // 1. ካርቴላ ሲመርጡ ወይም ሲሰርዙ (Toggle Select & Refund/Deduct)
+        // ---------------------------------------------------------
         async function toggleSelect(num, cell) {
             if (gameStarted) return;
             const index = selectedCards.indexOf(num);
             
             if (index > -1) {
+                // ካርዱን ሲሰርዝ ገንዘብ ወደ ሰርቨር መመለስ (Refund)
                 try {
                     const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
@@ -883,6 +866,7 @@
                     return;
                 }
 
+                // ሰርቨር ላይ ከባላንስ ላይ መቀነስ (Deduct)
                 try {
                     const res = await fetch(`${SERVER_URL}/api/deduct-balance`, {
                         method: 'POST',
@@ -951,6 +935,9 @@
             }
         }
 
+        // ---------------------------------------------------------
+        // 2. የተመረጠ ስሎት ሲጸዳ / ሲጠፋ (Clear Slot & Refund)
+        // ---------------------------------------------------------
         async function clearSlot(slotNum) {
             if (gameStarted) return;
             let removed = null;
@@ -966,6 +953,7 @@
                 if (cell) cell.classList.remove('selected');
                 soldCount--;
 
+                // ካርዱ ሲጠፋ የካርዱ ዋጋ ወደ ሰርቨር ተመልሶ እንዲጨምር (Refund) ማድረግ
                 try {
                     const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
@@ -1001,6 +989,7 @@
 
             const derashVal = document.getElementById('derash-val');
             const playersVal = document.getElementById('players-val');
+            // 3. የሽልማት መጠን ማሰያ (Prize Calculation)
             let prize = soldCount * 8;
             if (derashVal) derashVal.innerText = prize + ' ETB';
             if (playersVal) playersVal.innerText = soldCount;
@@ -1218,13 +1207,15 @@
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem(`y_selectedCards_${userTelegramId}`);
             localStorage.removeItem('y_markedCellsState');
-            localStorage.removeItem('y_roundStartTime');
+            localStorage.setItem('y_roundStartTime', Date.now());
+            localStorage.setItem('y_soldCount', '0');
 
             gameStarted = false;
             calledBalls = [];
             selectedCards = [];
             markedCellsState = {};
             soldCount = 0;
+            roundStartTime = Date.now();
 
             document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
             fetchServerBalance();
@@ -1234,7 +1225,7 @@
             if (pageGame) pageGame.classList.remove('active');
             if (pageBuy) pageBuy.classList.add('active');
 
-            initApp();
+            startGlobalLoop();
         }
     </script>
 </body>
