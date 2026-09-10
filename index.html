@@ -574,8 +574,21 @@
             window.Telegram.WebApp.expand();
         }
 
-        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        const userTelegramId = tgUser?.id || "guest_user";
+        // ከቴሌግራም ዌብ አፕ ዩዘር መረጃውን በትክክል ለመቀበል
+        const webAppUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        let userTelegramId = webAppUser?.id;
+
+        // ዩዘር ਆይዲ ከሌለ ከ URL Parameters (Query String) ለመቀበል መሞከሪያ
+        if (!userTelegramId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            userTelegramId = urlParams.get('telegram_id') || localStorage.getItem('y_saved_telegram_id');
+        }
+
+        if (userTelegramId) {
+            localStorage.setItem('y_saved_telegram_id', userTelegramId);
+        } else {
+            userTelegramId = "guest_user";
+        }
 
         // !!! እባክዎ የሰርቨርዎን ትክክለኛ ሊንክ (Render ወይም Railway) እዚህ ይክተቱ !!!
          const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
