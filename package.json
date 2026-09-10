@@ -1,12 +1,14 @@
 {
-  "name": "bingo-mini-app-bot",
+  "name": "yejubingo-bot",
   "version": "1.0.0",
-  "description": "Telegram Bingo Mini App Bot",
-  "main": "bot.js",
+  "description": "YejuBingo Telegram Mini App Bot",
+  "main": "server.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node server.js"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.19.2",
     "telegraf": "^4.16.3"
   }
 }
