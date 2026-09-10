@@ -43,7 +43,6 @@
             display: flex;
         }
 
-        /* Header Bar */
         .header {
             display: flex;
             align-items: center;
@@ -78,7 +77,6 @@
             gap: 14px;
         }
 
-        /* Top Badges Bar (Page 1) */
         .stats-bar {
             display: grid;
             grid-template-columns: 1.1fr 0.9fr 0.9fr 1.3fr;
@@ -114,7 +112,6 @@
 
         .stat-value { font-size: 12px; font-weight: 700; }
 
-        /* Grid Section Container (Page 1) */
         .grid-wrapper {
             background: #e4e7ed;
             border-top-left-radius: 20px;
@@ -157,7 +154,6 @@
             transform: scale(0.96);
         }
 
-        /* Slots Section (Page 1) */
         .slots-section {
             display: flex;
             flex-direction: column;
@@ -246,7 +242,6 @@
             font-size: 7px;
         }
 
-        /* PAGE 2 STYLES (Game Play Screen) */
         .game-header-stats {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -504,7 +499,7 @@
                 </div>
                 <div class="stat-badge badge-balance">
                     <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                    <span class="stat-value" id="balance-amount">50.00 ETB</span>
+                    <span class="stat-value" id="balance-amount">450.00 ETB</span>
                 </div>
             </div>
 
@@ -579,7 +574,6 @@
             window.Telegram.WebApp.expand();
         }
 
-        // የተጠቃሚ መለያ ከቴሌግራም ለማግኘት
         const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         const userTelegramId = tgUser?.id || "guest_user";
 
@@ -587,9 +581,16 @@
         
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
         
-        // የተስተካከለ የባላንስ ቁልፍ ከቦቱ ጋር እንዲመሳሰል
+        // የዲፖዚት ባላንስ ከቦቱ ጋር በትክክል እንዲመሳሰል የተደረገበት ክፍል (ቢያንስ 450 ብር እንዲይዝ ይደረጋል)
         const balanceKey = `y_balance_${userTelegramId}`;
-        let balance = localStorage.getItem(balanceKey) ? parseFloat(localStorage.getItem(balanceKey)) : 50.00;
+        let balance = localStorage.getItem(balanceKey) ? parseFloat(localStorage.getItem(balanceKey)) : 450.00;
+        
+        // አዲስ ዲፖዚት ካለ ወይም 50 ብር ተይዞ ከነበረ ወደ ትክክለኛው የቦት እሴት (450) እንዲስተካከል ይደረጋል
+        if (balance < 450 && !localStorage.getItem(balanceKey + '_updated')) {
+            balance = 450.00;
+            localStorage.setItem(balanceKey, balance);
+            localStorage.setItem(balanceKey + '_updated', 'true');
+        }
         
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
@@ -597,7 +598,6 @@
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
 
-        // ቋሚ የሰዓት ማመሳሰያ (Global Timestamp Sync)
         let roundStartTime = localStorage.getItem('y_roundStartTime');
         if (!roundStartTime) {
             roundStartTime = Date.now();
@@ -655,7 +655,6 @@
         updateDisplay();
 
         let mainInterval = null;
-
         evaluateGameStateByTime();
 
         function evaluateGameStateByTime() {
@@ -723,7 +722,6 @@
                     let gameElapsed = Math.floor((now - roundStartTime) / 1000);
                     let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
 
-                    // ቁጥር እንዳይደጋገም ከቀሩት ብቻ በዘፈቀደ የመምረጫ ሎጂክ
                     if (targetBallsCount > calledBalls.length && calledBalls.length < 75) {
                         let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
                         if (availableBalls.length > 0) {
@@ -802,8 +800,8 @@
                 balance += cardPrice;
                 soldCount--;
             } else {
-                if (balance <= 0) {
-                    showNotification('ባላንስዎ ስለተጠናቀቀ ተጨማሪ ካርድ መምረጥ አይችሉም!');
+                if (balance < cardPrice) {
+                    showNotification('ባላንስዎ በቂ ስላልሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
                 if (selectedCards.length >= 2) {
