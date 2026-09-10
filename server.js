@@ -4,27 +4,59 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 
-const BOT_TOKEN = '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY'; // የቦት ቶከንዎ
-const ADMIN_TELEGRAM_ID = 2119423483; // የአድሚን ID
-const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html/'; // የ GitHub Pages ሊንክዎ
+// 1. ማስተካከያ 'ለ': ሚስጥራዊ ቁጥሮች እና ቶከኖች በ Environment Variables እንዲያዙ ማድረግ
+const BOT_TOKEN = process.env.BOT_TOKEN || '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY';
+const ADMIN_TELEGRAM_ID = Number(process.env.ADMIN_TELEGRAM_ID || 2119423483);
+const WEB_APP_URL = process.env.WEB_APP_URL || 'https://getachewhailu289.github.io/index.html/';
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
 
 app.use(express.json());
-app.use(cors()); // ሚኒ አፑ ከሌላ ዶሜን (GitHub Pages) ሆኖ ከሰርቨር ጋር መነጋገር እንዲችል
-app.use(express.static('public')); // የፊት ለፊት ፋይሎችዎ የሚገኙበት ፎልደር (ካለ)
+
+// 2. ማስተካከያ 'ሀ': የ CORS ጥብቅ ቁጥጥር (ከተፈቀዱ ዶሜኖች ጋር ብቻ እንዲሰራ ማድረግ)
+const allowedOrigins = [
+    'https://getachewhailu289.github.io',
+    'http://localhost:3000' // ለLocal ሙከራ
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORS policy violation: Access denied.'));
+        }
+    }
+}));
+
+app.use(express.static('public'));
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
 
+// 3. ማስተካከያ 'ሐ': የመረጃ ማከማቻ ጽኑነት (ሁልጊዜም መረጃውን እንደ Object/Dictionary ማዋቀር እና ማስቀመጥ)
 function loadUsers() {
     if (!fs.existsSync(USERS_FILE)) {
         fs.writeFileSync(USERS_FILE, JSON.stringify({}));
     }
     try {
         const data = fs.readFileSync(USERS_FILE, 'utf8');
-        return data.trim() ? JSON.parse(data) : {};
+        const parsed = data.trim() ? JSON.parse(data) : {};
+        
+        // ፋይሉ በ Array መልክ ከተቀመጠ ወደ Object በመቀየር ጽኑነቱን መጠበቅ
+        if (Array.isArray(parsed)) {
+            const userObj = {};
+            parsed.forEach(user => {
+                const uid = user.telegram_id || user.id;
+                if (uid) {
+                    userObj[uid] = user;
+                }
+            });
+            saveUsers(userObj);
+            return userObj;
+        }
+        return parsed;
     } catch (e) {
         return {};
     }
@@ -75,7 +107,7 @@ function addTransaction(userId, type, amount, details = '') {
 const pendingWithdrawals = {};
 
 // ---------------------------------------------------------
-// 1. የባላንስ መረጃን ከሰርቨር ለማንበብ (Get Balance API - Query & Param Supported)
+// 1. የባላንስ መረጃን ከሰርቨር ለማንበብ (Get Balance API)
 // ---------------------------------------------------------
 app.get('/api/balance', (req, res) => {
     const telegramId = req.query.telegram_id || req.query.user_id || req.query.id;
@@ -85,13 +117,7 @@ app.get('/api/balance', (req, res) => {
     }
     
     const users = loadUsers();
-    let targetUser = null;
-
-    if (Array.isArray(users)) {
-        targetUser = users.find(u => String(u.telegram_id) === String(telegramId) || String(u.id) === String(telegramId));
-    } else {
-        targetUser = users[telegramId];
-    }
+    const targetUser = users[telegramId];
 
     if (targetUser) {
         return res.json({ success: true, balance: targetUser.balance || 0 });
@@ -103,13 +129,7 @@ app.get('/api/balance', (req, res) => {
 app.get('/api/balance/:userId', (req, res) => {
     const userId = req.params.userId;
     const users = loadUsers();
-    let targetUser = null;
-    
-    if (Array.isArray(users)) {
-        targetUser = users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId));
-    } else {
-        targetUser = users[userId];
-    }
+    const targetUser = users[userId];
 
     if (targetUser) {
         return res.json({ success: true, balance: targetUser.balance || 0 });
@@ -126,12 +146,7 @@ app.post('/api/deduct-balance', (req, res) => {
     const amount = req.body.amount;
     const users = loadUsers();
 
-    let targetUser = null;
-    if (Array.isArray(users)) {
-        targetUser = users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId));
-    } else {
-        targetUser = users[userId];
-    }
+    const targetUser = users[userId];
 
     if (!targetUser) {
         return res.json({ success: false, message: 'ተጠቃሚው አልተገኘም' });
@@ -156,12 +171,7 @@ app.post('/api/update-balance', (req, res) => {
     const amount = req.body.amount;
     const users = loadUsers();
 
-    let targetUser = null;
-    if (Array.isArray(users)) {
-        targetUser = users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId));
-    } else {
-        targetUser = users[userId];
-    }
+    const targetUser = users[userId];
 
     if (!targetUser) {
         return res.json({ success: false, message: 'ተጠቃሚው አልተገኘም' });
@@ -179,20 +189,12 @@ const handleStartAndRegister = (ctx) => {
     const users = loadUsers();
     const firstName = ctx.from.first_name || 'ተጠቃሚ';
 
-    if (Array.isArray(users)) {
-        let user = users.find(u => String(u.telegram_id) === userId);
-        if (!user) {
-            users.push({ telegram_id: userId, firstName: firstName, phone: '', balance: 0 });
-            saveUsers(users);
-        }
-    } else {
-        if (!users[userId]) {
-            users[userId] = { firstName: firstName, phone: '', balance: 0 };
-            saveUsers(users);
-        }
+    if (!users[userId]) {
+        users[userId] = { firstName: firstName, phone: '', balance: 0 };
+        saveUsers(users);
     }
 
-    let currentUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === userId) : users[userId];
+    let currentUser = users[userId];
 
     if (!currentUser.phone || currentUser.phone === 'ስልክ አልገባም') {
         return ctx.reply(
@@ -232,19 +234,10 @@ bot.on('contact', (ctx) => {
         phoneNum = '+' + phoneNum;
     }
 
-    if (Array.isArray(users)) {
-        let user = users.find(u => String(u.telegram_id) === userId);
-        if (user) {
-            user.phone = phoneNum;
-        } else {
-            users.push({ telegram_id: userId, firstName: ctx.from.first_name || 'ተጠቃሚ', phone: phoneNum, balance: 0 });
-        }
-    } else {
-        if (!users[userId]) {
-            users[userId] = { firstName: ctx.from.first_name || 'ተጠቃሚ', balance: 0 };
-        }
-        users[userId].phone = phoneNum;
+    if (!users[userId]) {
+        users[userId] = { firstName: ctx.from.first_name || 'ተጠቃሚ', balance: 0 };
     }
+    users[userId].phone = phoneNum;
     saveUsers(users);
 
     bot.telegram.sendMessage(
@@ -272,14 +265,7 @@ bot.on('contact', (ctx) => {
 const handleBalance = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
-    
-    let userBalance = 0;
-    if (Array.isArray(users)) {
-        const user = users.find(u => String(u.telegram_id) === userId);
-        userBalance = user ? (user.balance || 0) : 0;
-    } else {
-        userBalance = users[userId]?.balance || 0;
-    }
+    const userBalance = users[userId]?.balance || 0;
 
     return ctx.reply(`💰 የአሁኑ ቀሪ ሂሳብዎ: <b>${userBalance}.00 ETB</b>`, { parse_mode: 'HTML' });
 };
@@ -302,8 +288,7 @@ bot.command('deposit', handleDeposit);
 const handleWithdraw = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
-
-    let currentUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === userId) : users[userId];
+    const currentUser = users[userId];
 
     if (!currentUser || !currentUser.phone) {
         return ctx.reply("❌ እባክዎ መጀመሪያ /start በመጫን ይመዝገቡ።");
@@ -411,7 +396,7 @@ bot.on('message', async (ctx, next) => {
                 return ctx.reply("❌ እባክዎ ትክክለኛ የብር መጠን (ቁጥር) ብቻ ያስገቡ!");
             }
 
-            let currentUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === userId) : users[userId];
+            let currentUser = users[userId];
             const userBalance = currentUser?.balance || 0;
 
             if (amount > userBalance) {
@@ -454,20 +439,12 @@ bot.on('message', async (ctx, next) => {
         }
     }
 
-    if (Array.isArray(users)) {
-        let user = users.find(u => String(u.telegram_id) === userId);
-        if (!user) {
-            users.push({ telegram_id: userId, firstName: firstName, phone: 'ስልክ አልገባም', balance: 0 });
-            saveUsers(users);
-        }
-    } else {
-        if (!users[userId]) {
-            users[userId] = { firstName: firstName, phone: 'ስልክ አልገባም', balance: 0 };
-            saveUsers(users);
-        }
+    if (!users[userId]) {
+        users[userId] = { firstName: firstName, phone: 'ስልክ አልገባም', balance: 0 };
+        saveUsers(users);
     }
 
-    let currentUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === userId) : users[userId];
+    let currentUser = users[userId];
     const userPhone = currentUser?.phone || 'ስልክ አልገባም';
 
     await bot.telegram.sendMessage(
@@ -499,20 +476,12 @@ bot.command('users', (ctx) => {
     }
 
     const users = loadUsers();
-    let message = `👥 <b>አጠቃላይ ተጠቃሚዎች:</b> `;
-    
-    if (Array.isArray(users)) {
-        message += `${users.length}\n\n`;
-        for (let u of users) {
-            message += `👤 ${u.firstName || 'ተጠቃሚ'} - ID: <code>${u.telegram_id || u.id}</code> - 📱 ${u.phone || 'ስልክ የለም'} - 💰 ${u.balance || 0} ETB\n`;
-        }
-    } else {
-        const userIds = Object.keys(users);
-        message += `${userIds.length}\n\n`;
-        for (let id of userIds) {
-            let u = users[id];
-            message += `👤 ${u.firstName} - ID: <code>${id}</code> - 📱 ${u.phone || 'ስልክ የለም'} - 💰 ${u.balance || 0} ETB\n`;
-        }
+    const userIds = Object.keys(users);
+    let message = `👥 <b>አጠቃላይ ተጠቃሚዎች:</b> ${userIds.length}\n\n`;
+
+    for (let id of userIds) {
+        let u = users[id];
+        message += `👤 ${u.firstName || 'ተጠቃሚ'} - ID: <code>${id}</code> - 📱 ${u.phone || 'ስልክ የለም'} - 💰 ${u.balance || 0} ETB\n`;
     }
 
     return ctx.reply(message, { parse_mode: 'HTML' });
@@ -539,19 +508,11 @@ const handleAddBalance = (ctx) => {
     const users = loadUsers();
     let targetUserId = null;
 
-    if (Array.isArray(users)) {
-        let targetUser = users.find(u => String(u.telegram_id) === String(targetIdentifier) || String(u.id) === String(targetIdentifier) || String(u.phone) === String(targetIdentifier));
-        if (targetUser) {
-            targetUserId = targetUser.telegram_id || targetUser.id;
-            targetUser.balance = (targetUser.balance || 0) + amount;
-        }
-    } else {
-        for (let id of Object.keys(users)) {
-            if (id === targetIdentifier || users[id].phone === targetIdentifier) {
-                targetUserId = id;
-                users[targetUserId].balance = (users[targetUserId].balance || 0) + amount;
-                break;
-            }
+    for (let id of Object.keys(users)) {
+        if (id === targetIdentifier || users[id].phone === targetIdentifier) {
+            targetUserId = id;
+            users[targetUserId].balance = (users[targetUserId].balance || 0) + amount;
+            break;
         }
     }
 
@@ -561,15 +522,8 @@ const handleAddBalance = (ctx) => {
 
     try {
         saveUsers(users);
-
-        let finalUsers = loadUsers();
-        let updatedBalance = 0;
-        if (Array.isArray(finalUsers)) {
-            let u = finalUsers.find(user => String(user.telegram_id) === String(targetUserId));
-            updatedBalance = u ? u.balance : 0;
-        } else {
-            updatedBalance = finalUsers[targetUserId]?.balance || 0;
-        }
+        const finalUsers = loadUsers();
+        const updatedBalance = finalUsers[targetUserId]?.balance || 0;
 
         addTransaction(targetUserId, 'deposit', amount, 'በአድሚን የተጫነ (/addbalance)');
 
