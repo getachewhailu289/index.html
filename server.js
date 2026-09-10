@@ -198,6 +198,13 @@ app.post('/api/update-balance', (req, res) => {
     return res.json({ success: true, balance: targetUser.balance });
 });
 
+// ---------------------------------------------------------
+// 10. የሰርቨር ሰዓትን ለማመሳሰል (Server Time Sync API) [Newly Added]
+// ---------------------------------------------------------
+app.get('/api/server-time', (req, res) => {
+    return res.json({ success: true, serverTime: Date.now() });
+});
+
 // 1. /start ወይም /register ሲጀመር ስልክ ቁጥር መጠየቂያ
 const handleStartAndRegister = (ctx) => {
     const userId = ctx.from.id.toString();
