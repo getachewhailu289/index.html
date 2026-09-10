@@ -499,7 +499,7 @@
                 </div>
                 <div class="stat-badge badge-balance">
                     <span class="stat-label" style="color: #e2fccf;">BALANCE</span>
-                    <span class="stat-value" id="balance-amount">450.00 ETB</span>
+                    <span class="stat-value" id="balance-amount">0.00 ETB</span>
                 </div>
             </div>
 
@@ -581,15 +581,27 @@
         
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
         
-        // የዲፖዚት ባላንስ ከቦቱ ጋር በትክክል እንዲመሳሰል የተደረገበት ክፍል (ቢያንስ 450 ብር እንዲይዝ ይደረጋል)
+        // የቦቱን እና የዲፖዚቱን ባላንስ ከቦቱ ጋር በተቀናጀ መልኩ (ለእያንዳንዱ ተጠቃሚ በተናጠል) ማንበብ
         const balanceKey = `y_balance_${userTelegramId}`;
-        let balance = localStorage.getItem(balanceKey) ? parseFloat(localStorage.getItem(balanceKey)) : 450.00;
         
-        // አዲስ ዲፖዚት ካለ ወይም 50 ብር ተይዞ ከነበረ ወደ ትክክለኛው የቦት እሴት (450) እንዲስተካከል ይደረጋል
-        if (balance < 450 && !localStorage.getItem(balanceKey + '_updated')) {
-            balance = 450.00;
+        // ቦቱ ላይ የተደረገው ዲፖዚት ወይም የባላንስ መረጃ ከሌለ በቦቱ የተላከውን (ለምሳሌ 450 ብር ያስገቡበትን) መረጃ ለመቀበል 
+        // ከዚህ ቀደም በ localStorage የተያዘውን ወይም በቦቱ በኩል የተዘመነውን ትክክለኛ ባላንስ ይወስዳል።
+        // (የቦቱ ሲስተም ባላንሱን ወደ LocalStorage 'y_bot_synced_balance' አድርጎ የሚልክ ከሆነ እሱን ቅድሚያ እንዲወስድ ይደረጋል)
+        let initialBotBalance = localStorage.getItem('y_bot_synced_balance');
+        let balance = 0;
+
+        if (initialBotBalance !== null) {
+            balance = parseFloat(initialBotBalance);
             localStorage.setItem(balanceKey, balance);
-            localStorage.setItem(balanceKey + '_updated', 'true');
+            localStorage.removeItem('y_bot_synced_balance'); // አንዴ ካነበበ በኋላ አጽዳው
+        } else if (localStorage.getItem(balanceKey) !== null) {
+            balance = parseFloat(localStorage.getItem(balanceKey));
+        } else {
+            // ከቦቱ የተላከ ባላንስ ከሌለ (ለምሳሌ በመጀመሪያው ግዜ) 450 ብር ወይም የገቡትን ዋጋ እንዲያሳይ 
+            // ቦቱ ላይ የነበረውን ዲፖዚት 450 ብር ብሎ በቋሚነት እንዳይዝ, ከቦቱ የሚመጣውን እውነተኛ የዲፖዚት መረጃ እንዲጠቀም ይደረጋል።
+            // እዚህ ጋር ቦቱ ላይ የሰጡት ዲፖዚት (450) እንዲነበብ የመጀመሪያ ነባሪ ዋጋ ተደርጎ ይወሰዳል፡
+            balance = 450.00; 
+            localStorage.setItem(balanceKey, balance);
         }
         
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
@@ -1053,7 +1065,7 @@
             cells.forEach((cell, index) => {
                 let val = cell.dataset.val;
                 row.push({
-                    marked: cell.classList.contains('marked'),
+                    marked: cell.classList.    contains('marked'),
                     value: val === '★' ? '★' : parseInt(val)
                 });
                 if ((index + 1) % 5 === 0) {
