@@ -577,33 +577,30 @@
         const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         const userTelegramId = tgUser?.id || "guest_user";
 
-        const cardPrice = 10.00;
-        
-        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
-        
-        // የቦቱን እና የዲፖዚቱን ባላንስ ከቦቱ ጋር በተቀናጀ መልኩ (ለእያንዳንዱ ተጠቃሚ በተናጠል) ማንበብ
-        const balanceKey = `y_balance_${userTelegramId}`;
-        
-        // ቦቱ ላይ የተደረገው ዲፖዚት ወይም የባላንስ መረጃ ከሌለ በቦቱ የተላከውን (ለምሳሌ 450 ብር ያስገቡበትን) መረጃ ለመቀበል 
-        // ከዚህ ቀደም በ localStorage የተያዘውን ወይም በቦቱ በኩል የተዘመነውን ትክክለኛ ባላንስ ይወስዳል።
-        // (የቦቱ ሲስተም ባላንሱን ወደ LocalStorage 'y_bot_synced_balance' አድርጎ የሚልክ ከሆነ እሱን ቅድሚያ እንዲወስድ ይደረጋል)
-        let initialBotBalance = localStorage.getItem('y_bot_synced_balance');
-        let balance = 0;
+        // !!! እባክዎ የሰርቨርዎን ትክክለኛ ሊንክ (Render ወይም Railway) እዚህ ይክተቱ !!!
+         const SERVER_URL = 'https://index-html-fu4s.onrender.com';
 
-        if (initialBotBalance !== null) {
-            balance = parseFloat(initialBotBalance);
-            localStorage.setItem(balanceKey, balance);
-            localStorage.removeItem('y_bot_synced_balance'); // አንዴ ካነበበ በኋላ አጽዳው
-        } else if (localStorage.getItem(balanceKey) !== null) {
-            balance = parseFloat(localStorage.getItem(balanceKey));
-        } else {
-            // ከቦቱ የተላከ ባላንስ ከሌለ (ለምሳሌ በመጀመሪያው ግዜ) 450 ብር ወይም የገቡትን ዋጋ እንዲያሳይ 
-            // ቦቱ ላይ የነበረውን ዲፖዚት 450 ብር ብሎ በቋሚነት እንዳይዝ, ከቦቱ የሚመጣውን እውነተኛ የዲፖዚት መረጃ እንዲጠቀም ይደረጋል።
-            // እዚህ ጋር ቦቱ ላይ የሰጡት ዲፖዚት (450) እንዲነበብ የመጀመሪያ ነባሪ ዋጋ ተደርጎ ይወሰዳል፡
-            balance = 450.00; 
-            localStorage.setItem(balanceKey, balance);
+
+        const cardPrice = 10.00;
+        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
+        let balance = 0.00;
+
+        // ከሰርቨር የተጠቃሚውን ባላንስ በቀጥታ ማምጣት
+        async function fetchServerBalance() {
+            try {
+                const users = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
+                const data = await users.json();
+                if (data.success) {
+                    balance = data.balance;
+                    updateDisplay();
+                }
+            } catch (err) {
+                console.log('ባላንስ ማምጣት አልተቻለም:', err);
+            }
         }
-        
+
+        fetchServerBalance();
+
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
@@ -768,10 +765,7 @@
                                     hasWon = true;
                                     if (mainInterval) clearInterval(mainInterval);
                                     let prize = soldCount * 8;
-                                    balance += prize;
-                                    showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-                                    saveState();
-                                    setTimeout(() => resetGameLoopLocally(), 2500);
+                                    updateServerBalanceOnWin(prize, cardNum);
                                 }
                             });
 
@@ -788,6 +782,26 @@
             }, 1000);
         }
 
+        async function updateServerBalanceOnWin(prize, cardNum) {
+            try {
+                const users = await fetch(`${SERVER_URL}/api/update-balance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userTelegramId, amount: prize })
+                });
+                const data = await users.json();
+                if (data.success) {
+                    balance = data.balance;
+                    updateDisplay();
+                }
+            } catch (e) {
+                console.log('ሽልማት ሰርቨር ላይ መመዝገብ አልቻለም');
+            }
+            showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
+            saveState();
+            setTimeout(() => resetGameLoopLocally(), 2500);
+        }
+
         function showNotification(message) {
             const toast = document.getElementById('custom-toast');
             if (!toast) return;
@@ -798,19 +812,20 @@
 
         function saveState() {
             localStorage.setItem('y_soldCount', soldCount);
-            localStorage.setItem(balanceKey, balance);
             localStorage.setItem(`y_selectedCards_${userTelegramId}`, JSON.stringify(selectedCards));
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
-        function toggleSelect(num, cell) {
+        async function toggleSelect(num, cell) {
             if (gameStarted) return;
             const index = selectedCards.indexOf(num);
             if (index > -1) {
+                // ካርዱን ሲሰርዝ ገንዘብ ወደ ሰርቨር መመለስ ከፈለጉ እዚህ ይጨመራል
                 selectedCards.splice(index, 1);
                 cell.classList.remove('selected');
-                balance += cardPrice;
                 soldCount--;
+                saveState();
+                updateDisplay();
             } else {
                 if (balance < cardPrice) {
                     showNotification('ባላንስዎ በቂ ስላልሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
@@ -820,13 +835,31 @@
                     showNotification('ከሁለት በላይ ካርድ መምረጥ አይችሉም!');
                     return;
                 }
+
+                // ሰርቨር ላይ ከባላንስ ላይ መቀነስ
+                try {
+                    const users = await fetch(`${SERVER_URL}/api/deduct-balance`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userTelegramId, amount: cardPrice })
+                    });
+                    const data = await users.json();
+                    if (!data.success) {
+                        showNotification(data.message || 'ሂሳብዎ በቂ አይደለም');
+                        return;
+                    }
+                    balance = data.balance;
+                } catch (e) {
+                    showNotification('የሰርቨር ግንኙነት ተቋርጧል!');
+                    return;
+                }
+
                 selectedCards.push(num);
                 cell.classList.add('selected');
-                balance -= cardPrice;
                 soldCount++;
+                saveState();
+                updateDisplay();
             }
-            saveState();
-            updateDisplay();
         }
 
         function updateDisplay() {
@@ -878,13 +911,11 @@
                 const removed = selectedCards.shift();
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if(cell) cell.classList.remove('selected');
-                balance += cardPrice;
                 soldCount--;
             } else if (slotNum === 2 && selectedCards.length > 1) {
                 const removed = selectedCards.pop();
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if(cell) cell.classList.remove('selected');
-                balance += cardPrice;
                 soldCount--;
             }
             saveState();
@@ -1065,7 +1096,7 @@
             cells.forEach((cell, index) => {
                 let val = cell.dataset.val;
                 row.push({
-                    marked: cell.classList.    contains('marked'),
+                    marked: cell.classList.contains('marked'),
                     value: val === '★' ? '★' : parseInt(val)
                 });
                 if ((index + 1) % 5 === 0) {
@@ -1114,10 +1145,7 @@
 
             if (mainInterval) clearInterval(mainInterval);
             let prize = soldCount * 8;
-            balance += prize;
-            showNotification(`🎉 እንኳን ደስ አለዎት! ካርድ #${cardNum} ትክክለኛ ቢንጎ አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-            saveState();
-            setTimeout(() => resetGameLoopLocally(), 2000);
+            updateServerBalanceOnWin(prize, cardNum);
         }
 
         function resetGameLoopLocally() {
@@ -1138,7 +1166,7 @@
             roundStartTime = Date.now();
 
             document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
-            updateDisplay();
+            fetchServerBalance(); // አዲስ ራውንድ ሲጀምር ባላንሱን ከሰርቨር እንደገና ማደስ
 
             const pageBuy = document.getElementById('page-buy');
             const pageGame = document.getElementById('page-game');
