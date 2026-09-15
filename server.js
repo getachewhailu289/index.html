@@ -127,7 +127,7 @@ setInterval(() => {
     }
 }, 1000);
 
-// ተጫዋቾች የጨዋታውን ሁኔታ (ሰዓት፣ የወጡ ቦሎች፣ Sold ብዛት) የሚጠይቁበት API
+// ተጫዋቾች የጨዋታውን ሁኔታ (ሰዓት፣ የወጡ ቦሎች፣ Sold ብዛት፣Taken Cards) የሚጠይቁበት የተስተካከለ API[cite: 27]
 app.get('/api/game-status', (req, res) => {
     const room = loadRoom();
     res.json({
@@ -206,11 +206,10 @@ app.get('/api/balance/:userId', (req, res) => {
 app.post('/api/deduct-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
     const amount = req.body.amount;
-    const cardNumber = req.body.cardNumber; // የካርቴላ ቁጥር ከፈረንጡ/ፍሮንትኤንድ መምጣት አለበት
+    const cardNumber = req.body.cardNumber; 
     const users = loadUsers();
     let room = loadRoom();
 
-    // ካርዱ አስቀድሞ በሌላ ሰው ተይዞ ከሆነ (Validation)
     if (cardNumber && room.takenCards && room.takenCards.includes(cardNumber)) {
         return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ ተመርጧል/ተሸጧል!' });
     }
@@ -234,13 +233,11 @@ app.post('/api/deduct-balance', (req, res) => {
     targetUser.balance = currentBalance - amount;
     saveUsers(users);
 
-    // ካርዱን ወደ ተያዘበት ሊስት መጨመር
     if (cardNumber) {
         if (!room.takenCards) room.takenCards = [];
         room.takenCards.push(cardNumber);
     }
 
-    // የክፍሉን የተሸጠ ካርድ ብዛት መጨመር
     room.soldCount = (room.soldCount || 0) + 1;
     soldCardsCount = room.soldCount;
     saveRoom(room);
@@ -254,7 +251,7 @@ app.post('/api/deduct-balance', (req, res) => {
 app.post('/api/refund-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
     const amount = req.body.amount;
-    const cardNumber = req.body.cardNumber; // ከተሰረዘ ከ takenCards ውስጥ ማስወገድ እንዲቻል
+    const cardNumber = req.body.cardNumber; 
     const users = loadUsers();
     let room = loadRoom();
 
@@ -272,12 +269,10 @@ app.post('/api/refund-balance', (req, res) => {
     targetUser.balance = (targetUser.balance || 0) + parseFloat(amount);
     saveUsers(users);
 
-    // ካርዱን ከተያዘበት ሊስት ውስጥ ማስወገድ
     if (cardNumber && room.takenCards) {
         room.takenCards = room.takenCards.filter(c => String(c) !== String(cardNumber));
     }
 
-    // የክፍሉን የተሸጠ ካርድ ብዛት መቀነስ
     room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
     soldCardsCount = room.soldCount;
     saveRoom(room);
@@ -310,7 +305,7 @@ app.post('/api/update-balance', (req, res) => {
     return res.json({ success: true, balance: targetUser.balance });
 });
 
-// 1. /start ወይም /register ሲጀመር ስልክ ቁጥር መጠየቂያ
+// Bot Commands & Handlers
 const handleStartAndRegister = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
@@ -358,7 +353,6 @@ bot.start(handleStartAndRegister);
 bot.command('register', handleStartAndRegister);
 bot.hears('register', handleStartAndRegister);
 
-// 2. ተጠቃሚው Contact ሲያጋራ የሚቀበለው ክፍል
 bot.on('contact', (ctx) => {
     const userId = ctx.from.id.toString();
     const contact = ctx.message.contact;
@@ -405,7 +399,6 @@ bot.on('contact', (ctx) => {
     );
 });
 
-// 3. 💰 Balance
 const handleBalance = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
@@ -424,7 +417,6 @@ const handleBalance = (ctx) => {
 bot.hears('💰 Balance', handleBalance);
 bot.command('balance', handleBalance);
 
-// 4. 💳 Deposit
 const handleDeposit = (ctx) => {
     return ctx.reply(
         "💳 <b>የገንዘብ ተቀማጭ (Deposit) መመሪያ</b>\n\nበቴሌብር (Telebirb) በኩል ገንዘብ ይላኩ፡\n\n📞 <b>ስልክ ቁጥር:</b> 0985141415\n👤 <b>ስም:</b> ጌታቸዉ ሀይሉ\n\nብሩን ከላኩ በኋላ የትራንዛክሽን SMS እዚሁ ይላኩ።",
@@ -435,7 +427,6 @@ const handleDeposit = (ctx) => {
 bot.hears('💳 Deposit', handleDeposit);
 bot.command('deposit', handleDeposit);
 
-// 5. 💸 Withdrawal
 const handleWithdraw = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
@@ -455,7 +446,6 @@ bot.hears('withdrawal 💸 የገንዘብ ማውጣት', handleWithdraw);
 bot.hears('💸 Withdraw', handleWithdraw);
 bot.command('withdraw', handleWithdraw);
 
-// 6. 📋 History
 const handleHistoryMenu = (ctx) => {
     return ctx.reply(
         "📋 <b>የግብይት ታሪክ</b>\n\nማየት የሚፈልጉትን ይምረጡ፡",
@@ -510,7 +500,6 @@ bot.action('history_withdrawal', (ctx) => {
     return ctx.editMessageText(message, { parse_mode: 'HTML' });
 });
 
-// 7. Message Handler
 bot.on('message', async (ctx, next) => {
     if (!ctx.message.text) return next();
     const text = ctx.message.text;
@@ -629,7 +618,6 @@ bot.on('message', async (ctx, next) => {
     );
 });
 
-// 8. Admin: /users
 bot.command('users', (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) {
         return ctx.reply("ይህንን ትዕዛዝ መጠቀም የሚችሉት አድሚኑ ብቻ ናቸው!");
@@ -655,7 +643,6 @@ bot.command('users', (ctx) => {
     return ctx.reply(message, { parse_mode: 'HTML' });
 });
 
-// 9. Admin: /addbalance
 const handleAddBalance = (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) {
         return ctx.reply("❌ አልተሳካም! አድሚን ብቻ ናቸው!");
