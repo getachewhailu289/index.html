@@ -99,7 +99,7 @@ let serverRoundStartTime = Date.now();
 let serverCalledBalls = [];
 let soldCardsCount = 0; // የተሸጡ ካርቴላዎች ብዛት
 
-// በየ 5 ሰኮንድ ሰርቨሩ ራሱ አንድ ቦል እያወጣ ወደ ዝርዝሩ ይጨምራል
+// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን ይቆጣጠራል
 setInterval(() => {
     let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
     // ከ 40 ሰኮንድ የ ግዢ ሰዓት በኋላ ጨዋታው ይጀምራል (በየ 5 ሰኮንድ 1 ቦል)
