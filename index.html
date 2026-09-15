@@ -613,6 +613,24 @@
 
         fetchServerBalance();
 
+        // ከሰርቨር አጠቃላይ የተጫዋቾችን/ካርቴላዎችን ብዛት የሚያመጣ ፈንክሽን[cite: 13]
+        async function fetchRoomStats() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/room-stats`);
+                const data = await response.json();
+                if (data.success) {
+                    soldCount = data.soldCount;
+                    const soldEl = document.getElementById('sold-count');
+                    if (soldEl) soldEl.innerText = soldCount;
+                }
+            } catch (e) {
+                console.log('Room stats ማምጣት አልተቻለም');
+            }
+        }
+
+        // ጨዋታው ባለበት ሰዓት ወይም በየ 2 ሰኮንዱ አጠቃላይ የተጫዋቾችን ብዛት ከሰርቨር ማቀበል[cite: 13]
+        setInterval(fetchRoomStats, 2000);
+
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
         let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
@@ -828,15 +846,11 @@
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
-        // ---------------------------------------------------------
-        // 1. ካርቴላ ሲመርጡ ወይም ሲሰርዙ (Toggle Select & Refund/Deduct)
-        // ---------------------------------------------------------
         async function toggleSelect(num, cell) {
             if (gameStarted) return;
             const index = selectedCards.indexOf(num);
             
             if (index > -1) {
-                // ካርዱን ሲሰርዝ ገንዘብ ወደ ሰርቨር መመለስ (Refund)
                 try {
                     const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
@@ -866,7 +880,6 @@
                     return;
                 }
 
-                // ሰርቨር ላይ ከባላንስ ላይ መቀነስ (Deduct)
                 try {
                     const res = await fetch(`${SERVER_URL}/api/deduct-balance`, {
                         method: 'POST',
@@ -935,9 +948,6 @@
             }
         }
 
-        // ---------------------------------------------------------
-        // 2. የተመረጠ ስሎት ሲጸዳ / ሲጠፋ (Clear Slot & Refund)
-        // ---------------------------------------------------------
         async function clearSlot(slotNum) {
             if (gameStarted) return;
             let removed = null;
@@ -953,7 +963,6 @@
                 if (cell) cell.classList.remove('selected');
                 soldCount--;
 
-                // ካርዱ ሲጠፋ የካርዱ ዋጋ ወደ ሰርቨር ተመልሶ እንዲጨምር (Refund) ማድረግ
                 try {
                     const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
@@ -989,7 +998,6 @@
 
             const derashVal = document.getElementById('derash-val');
             const playersVal = document.getElementById('players-val');
-            // 3. የሽልማት መጠን ማሰያ (Prize Calculation)
             let prize = soldCount * 8;
             if (derashVal) derashVal.innerText = prize + ' ETB';
             if (playersVal) playersVal.innerText = soldCount;
