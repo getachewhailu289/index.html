@@ -593,6 +593,33 @@
         // የሰርቨርዎ ሊንክ
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
+        let serverTimeOffset = 0; // ከሰርቨር ሰዓት ጋር ያለውን ልዩነት ለማስተካከል
+
+        // የሰርቨርን ሰዓት እና የቦል መረጃዎች በየ 2 ሰኮንዱ ከሰርቨር የሚቀበል ፈንክሽን[cite: 18]
+        async function syncGameWithServer() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/game-status`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // የሰርቨርን መረጃዎች ለሁሉም ዲቫይስ በአንድነት እንጠቀማለን[cite: 18]
+                    soldCount = data.soldCount;
+                    calledBalls = data.calledBalls;
+                    
+                    const soldEl = document.getElementById('sold-count');
+                    if (soldEl) soldEl.innerText = soldCount;
+                    
+                    // በሰርቨር የተገኙትን ቦሎች በጠረጴዛው ላይ በህብረት ማሳየት[cite: 18]
+                    updateBoardAndCards();
+                }
+            } catch (e) {
+                console.log('የሰርቨር መረጃ ማግኘት አልተቻለም');
+            }
+        }
+
+        // በየ 2 ሰኮንዱ ከሰርቨር ጋር ማመሳሰል (ማንኛውም ዲቫይስ ላይ አንድ አይነት እንዲሆን)[cite: 18]
+        setInterval(syncGameWithServer, 2000);
+
         const cardPrice = 10.00;
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
         let balance = 0.00;
@@ -628,7 +655,6 @@
             }
         }
 
-        // ጨዋታው ባለበት ሰዓት ወይም በየ 2 ሰኮንዱ አጠቃላይ የተጫዋቾችን ብዛት ከሰርቨር ማቀበል[cite: 13]
         setInterval(fetchRoomStats, 2000);
 
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
@@ -769,25 +795,7 @@
                             calledBalls.push(drawnBall);
                             localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
 
-                            const targetCell = document.getElementById(`ball-num-${drawnBall}`);
-                            if (targetCell) targetCell.classList.add('called');
-
-                            selectedCards.forEach(cardNum => {
-                                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
-                                if (!matrixBox) return;
-                                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
-                                    let val = cell.dataset.val;
-                                    if (val !== '★' && parseInt(val) === drawnBall) {
-                                        cell.classList.add('marked');
-                                        markedCellsState[`${cardNum}_${cell.dataset.row}_${cell.dataset.col}`] = true;
-                                    }
-                                });
-                            });
-                            saveState();
-
-                            updateRecentTags();
-                            const bVal = document.getElementById('balls-val');
-                            if (bVal) bVal.innerText = calledBalls.length + '/75';
+                            updateBoardAndCards();
 
                             let hasWon = false;
                             selectedCards.forEach(cardNum => {
@@ -810,6 +818,30 @@
                     }
                 }
             }, 1000);
+        }
+
+        // ቦሎች እና ሰርቨር ላይ ያሉ ለውጦች ሲመጡ ጠረጴዛውንና ካርዶችን የሚያድስ ፈንክሽን
+        function updateBoardAndCards() {
+            calledBalls.forEach(drawnBall => {
+                const targetCell = document.getElementById(`ball-num-${drawnBall}`);
+                if (targetCell) targetCell.classList.add('called');
+
+                selectedCards.forEach(cardNum => {
+                    const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+                    if (!matrixBox) return;
+                    matrixBox.querySelectorAll('.um-cell').forEach(cell => {
+                        let val = cell.dataset.val;
+                        if (val !== '★' && parseInt(val) === drawnBall) {
+                            cell.classList.add('marked');
+                            markedCellsState[`${cardNum}_${cell.dataset.row}_${cell.dataset.col}`] = true;
+                        }
+                    });
+                });
+            });
+            saveState();
+            updateRecentTags();
+            const bVal = document.getElementById('balls-val');
+            if (bVal) bVal.innerText = calledBalls.length + '/75';
         }
 
         async function updateServerBalanceOnWin(prize, cardNum) {
@@ -1192,7 +1224,7 @@
                 lineCells.forEach(cell => {
                     if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
                         if (!uncalledNumbers.includes(cell.value)) {
-                            uncalledNumbers.push(cell.value);
+                            uncalledNumbers.path.push(cell.value); // corrected scope
                         }
                     }
                 });
