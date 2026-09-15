@@ -93,15 +93,64 @@ function addTransaction(userId, type, amount, details = '') {
 const pendingWithdrawals = {};
 
 // ---------------------------------------------------------
-// 0. አጠቃላይ የክፍሉን (Room) መረጃ ከሰርቨር ለማንበብ የሚረዳ API (አዲስ)
+// 0. የጨዋታው መረጃዎች በሰርቨር ሜሞሪ ውስጥ (ለማንኛውም ዲቫይስ አንድ አይነት እንዲሆኑ)
+// ---------------------------------------------------------
+let serverRoundStartTime = Date.now();
+let serverCalledBalls = [];
+let soldCardsCount = 0; // የተሸጡ ካርቴላዎች ብዛት
+
+// በየ 5 ሰኮንድ ሰርቨሩ ራሱ አንድ ቦል እያወጣ ወደ ዝርዝሩ ይጨምራል
+setInterval(() => {
+    let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
+    // ከ 40 ሰኮንድ የ ግዢ ሰዓት በኋላ ጨዋታው ይጀምራል (በየ 5 ሰኮንድ 1 ቦል)
+    if (elapsed >= 40) {
+        let gameElapsed = elapsed - 40;
+        let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
+        
+        if (serverCalledBalls.length < targetBallsCount && serverCalledBalls.length < 75) {
+            let available = Array.from({length: 75}, (_, i) => i + 1).filter(n => !serverCalledBalls.includes(n));
+            if (available.length > 0) {
+                let randIndex = Math.floor(Math.random() * available.length);
+                serverCalledBalls.push(available[randIndex]);
+            }
+        }
+        
+        // 75ቱም ቦሎች አልቀው ከተጠናቀቁ ጨዋታውን ከራሱ ሰዓት ጀምሮ ሪስታርት ያደርጋል
+        if (serverCalledBalls.length >= 75) {
+            setTimeout(() => {
+                serverRoundStartTime = Date.now();
+                serverCalledBalls = [];
+                soldCardsCount = 0;
+                saveRoom({ soldCount: 0 }); // ሩሙንም ሪስታርት እናደርጋለን
+            }, 3000);
+        }
+    }
+}, 1000);
+
+// ተጫዋቾች የጨዋታውን ሁኔታ (ሰዓት፣ የወጡ ቦሎች፣ Sold ብዛት) የሚጠይቁበት API
+app.get('/api/game-status', (req, res) => {
+    const room = loadRoom();
+    res.json({
+        success: true,
+        roundStartTime: serverRoundStartTime,
+        calledBalls: serverCalledBalls,
+        soldCount: room.soldCount || soldCardsCount
+    });
+});
+
+// ---------------------------------------------------------
+// 0.1. አጠቃላይ የክፍሉን (Room) መረጃ ከሰርቨር ለማንበብ የሚረዳ API
 // ---------------------------------------------------------
 app.get('/api/room-stats', (req, res) => {
     const room = loadRoom();
     res.json({ success: true, soldCount: room.soldCount });
 });
 
-// ጨዋታው ሲጀምር/ሲቀየር soldCount ወደ 0 ለመመለስ (አዲስ)
+// ጨዋታው ሲጀምር/ሲቀየር soldCount ወደ 0 ለመመለስ
 app.post('/api/reset-room', (req, res) => {
+    serverRoundStartTime = Date.now();
+    serverCalledBalls = [];
+    soldCardsCount = 0;
     saveRoom({ soldCount: 0 });
     res.json({ success: true });
 });
@@ -151,7 +200,7 @@ app.get('/api/balance/:userId', (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ (Deduct Balance API) - ተስተካክሏል
+// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ (Deduct Balance API)
 // ---------------------------------------------------------
 app.post('/api/deduct-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
@@ -180,13 +229,14 @@ app.post('/api/deduct-balance', (req, res) => {
     // የክፍሉን የተሸጠ ካርድ ብዛት መጨመር
     let room = loadRoom();
     room.soldCount = (room.soldCount || 0) + 1;
+    soldCardsCount = room.soldCount;
     saveRoom(room);
 
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
 // ---------------------------------------------------------
-// 2.1. ካርቴላ ሲሰርዝ ገንዘብ ወደ ባላንስ ለመመለስ (Refund Balance API) - ተስተካክሏል
+// 2.1. ካርቴላ ሲሰርዝ ገንዘብ ወደ ባላንስ ለመመለስ (Refund Balance API)
 // ---------------------------------------------------------
 app.post('/api/refund-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
@@ -210,6 +260,7 @@ app.post('/api/refund-balance', (req, res) => {
     // የክፍሉን የተሸጠ ካርድ ብዛት መቀነስ
     let room = loadRoom();
     room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
+    soldCardsCount = room.soldCount;
     saveRoom(room);
 
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
