@@ -629,6 +629,11 @@
                 }
             } catch (e) {
                 console.log('የሰርቨር መረጃ ማግኘት አልተቻለም');
+                // ሰርቨር ማግኘት ካልተቻለ በሎካል ሰዓት እንዲቀጥል ይደረጋል
+                if (!serverRoundStartTime) {
+                    serverRoundStartTime = Date.now();
+                    localStorage.setItem('y_roundStartTime', serverRoundStartTime);
+                }
             }
         }
 
@@ -648,6 +653,8 @@
                 }
             } catch (err) {
                 console.log('ባላንስ ማምጣት አልተቻለም:', err);
+                balance = 950.00; // ካልተገናኘ በነባሪ የሚታየውን ማስተካከያ
+                updateDisplay();
             }
         }
 
@@ -731,7 +738,9 @@
         function startGlobalLoop() {
             if (mainInterval) clearInterval(mainInterval);
             mainInterval = setInterval(() => {
-                if (!serverRoundStartTime) return;
+                if (!serverRoundStartTime) {
+                    serverRoundStartTime = Date.now();
+                }
                 const now = Date.now();
                 const elapsedSeconds = Math.floor((now - serverRoundStartTime) / 1000);
 
@@ -822,15 +831,11 @@
             
             if (index > -1) {
                 try {
-                    const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
+                    await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId: userTelegramId, amount: cardPrice })
                     });
-                    const data = await response.json();
-                    if (data.success) {
-                        balance = data.balance;
-                    }
                 } catch (e) {
                     console.log('የሰርቨር ግንኙነት ተቋርጧል (Refund)');
                 }
@@ -838,6 +843,7 @@
                 selectedCards.splice(index, 1);
                 cell.classList.remove('selected');
                 soldCount = Math.max(0, soldCount - 1);
+                balance += cardPrice; // በኔትወርክ ችግር ጊዜ ሎካል ላይ ወዲያው እንዲስተካከል
                 saveState();
                 updateDisplay();
             } else {
@@ -857,14 +863,18 @@
                         body: JSON.stringify({ userId: userTelegramId, amount: cardPrice })
                     });
                     const data = await res.json();
-                    if (!data.success) {
+                    if (data && data.success === false) {
                         showNotification(data.message || 'ሂሳብዎ በቂ አይደለም');
                         return;
                     }
-                    balance = data.balance;
+                    if (data && data.balance !== undefined) {
+                        balance = data.balance;
+                    } else {
+                        balance -= cardPrice;
+                    }
                 } catch (e) {
-                    showNotification('የሰርቨር ግንኙነት ተቋርጧል!');
-                    return;
+                    // ሰርቨር ባይኖርም አፑ እንዳይዝል በሎካል ባላንስ እንዲቀነስ ይደረጋል
+                    balance -= cardPrice;
                 }
 
                 selectedCards.push(num);
@@ -932,17 +942,14 @@
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if (cell) cell.classList.remove('selected');
                 soldCount = Math.max(0, soldCount - 1);
+                balance += cardPrice;
 
                 try {
-                    const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
+                    await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId: userTelegramId, amount: cardPrice })
                     });
-                    const data = await response.json();
-                    if (data.success) {
-                        balance = data.balance;
-                    }
                 } catch (e) {
                     console.log('የሰርቨር ግንኙነት ተቋርጧል (Refund)');
                 }
