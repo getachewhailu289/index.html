@@ -145,6 +145,7 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            user-select: none;
         }
 
         .number-cell.selected {
@@ -575,7 +576,7 @@
         }
 
         const webAppUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        let userTelegramId = webAppUser?.id;
+        let userTelegramId = webAppUser?.id ? String(webAppUser.id) : null;
 
         if (!userTelegramId) {
             const urlParams = new URLSearchParams(window.location.search);
@@ -590,6 +591,8 @@
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
+        let serverRoundStartTime = parseInt(localStorage.getItem('y_roundStartTime')) || 0;
+
         // የሰርቨር ሰዓት እና መረጃ ማመሳሰል
         async function syncGameWithServer() {
             try {
@@ -598,9 +601,16 @@
                 
                 if (data.success) {
                     soldCount = data.soldCount;
-                    calledBalls = data.calledBalls;
+                    calledBalls = data.calledBalls || [];
+                    
                     if (data.roundStartTime) {
-                        serverRoundStartTime = data.roundStartTime;
+                        if (serverRoundStartTime !== data.roundStartTime) {
+                            serverRoundStartTime = data.roundStartTime;
+                            localStorage.setItem('y_roundStartTime', serverRoundStartTime);
+                        }
+                    } else if (!serverRoundStartTime) {
+                        serverRoundStartTime = Date.now();
+                        localStorage.setItem('y_roundStartTime', serverRoundStartTime);
                     }
 
                     const elapsedSeconds = Math.floor((Date.now() - serverRoundStartTime) / 1000);
@@ -613,7 +623,9 @@
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
                     
-                    updateBoardAndCards();
+                    if (gameStarted) {
+                        updateBoardAndCards();
+                    }
                 }
             } catch (e) {
                 console.log('የሰርቨር መረጃ ማግኘት አልተቻለም');
@@ -623,13 +635,13 @@
         setInterval(syncGameWithServer, 1000);
 
         const cardPrice = 10.00;
-        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
+        let soldCount = 0;
         let balance = 0.00;
 
         async function fetchServerBalance() {
             try {
-                const users = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
-                const data = await users.json();
+                const res = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
+                const data = await res.json();
                 if (data.success) {
                     balance = data.balance;
                     updateDisplay();
@@ -647,10 +659,8 @@
                 const data = await response.json();
                 if (data.success) {
                     soldCount = data.soldCount;
-                    
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
-
                     const playersVal = document.getElementById('players-val');
                     if (playersVal) playersVal.innerText = soldCount;
                 }
@@ -666,14 +676,6 @@
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
-
-        let serverRoundStartTime = localStorage.getItem('y_roundStartTime');
-        if (!serverRoundStartTime) {
-            serverRoundStartTime = Date.now();
-            localStorage.setItem('y_roundStartTime', serverRoundStartTime);
-        } else {
-            serverRoundStartTime = parseInt(serverRoundStartTime);
-        }
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -729,6 +731,7 @@
         function startGlobalLoop() {
             if (mainInterval) clearInterval(mainInterval);
             mainInterval = setInterval(() => {
+                if (!serverRoundStartTime) return;
                 const now = Date.now();
                 const elapsedSeconds = Math.floor((now - serverRoundStartTime) / 1000);
 
@@ -780,12 +783,12 @@
 
         async function updateServerBalanceOnWin(prize, cardNum) {
             try {
-                const users = await fetch(`${SERVER_URL}/api/update-balance`, {
+                const res = await fetch(`${SERVER_URL}/api/update-balance`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userTelegramId, amount: prize })
                 });
-                const data = await users.json();
+                const data = await res.json();
                 if (data.success) {
                     balance = data.balance;
                     updateDisplay();
@@ -810,6 +813,7 @@
             localStorage.setItem('y_soldCount', soldCount);
             localStorage.setItem(`y_selectedCards_${userTelegramId}`, JSON.stringify(selectedCards));
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
+            localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
         }
 
         async function toggleSelect(num, cell) {
@@ -833,7 +837,7 @@
 
                 selectedCards.splice(index, 1);
                 cell.classList.remove('selected');
-                soldCount--;
+                soldCount = Math.max(0, soldCount - 1);
                 saveState();
                 updateDisplay();
             } else {
@@ -927,7 +931,7 @@
             if (removed !== null) {
                 const cell = document.querySelector(`[data-number='${removed}']`);
                 if (cell) cell.classList.remove('selected');
-                soldCount--;
+                soldCount = Math.max(0, soldCount - 1);
 
                 try {
                     const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
@@ -966,7 +970,6 @@
             const playersVal = document.getElementById('players-val');
             let prize = soldCount * 8;
             if (derashVal) derashVal.innerText = prize + ' ETB';
-            
             if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
@@ -1130,7 +1133,7 @@
             localStorage.removeItem('y_calledBalls');
             localStorage.removeItem(`y_selectedCards_${userTelegramId}`);
             localStorage.removeItem('y_markedCellsState');
-            localStorage.setItem('y_roundStartTime', Date.now());
+            localStorage.removeItem('y_roundStartTime');
             localStorage.setItem('y_soldCount', '0');
 
             gameStarted = false;
@@ -1139,6 +1142,7 @@
             markedCellsState = {};
             soldCount = 0;
             serverRoundStartTime = Date.now();
+            localStorage.setItem('y_roundStartTime', serverRoundStartTime);
 
             document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
             fetchServerBalance();
