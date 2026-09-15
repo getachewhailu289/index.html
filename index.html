@@ -590,8 +590,6 @@
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
-        let serverTimeOffset = 0;
-
         async function syncGameWithServer() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/game-status`);
@@ -1121,7 +1119,6 @@
             saveState();
         }
 
-        // --- እዚህ ጋር የተስተካከለው የዲያጎናል መስመር ማረጋገጫ ኮድ ተካትቷል ---
         function checkWinningCondition(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return false;
@@ -1143,18 +1140,13 @@
 
             let winningLines = [];
 
-            // አግድም (Rows)
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
-            // ቁመት (Columns)
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
             }
-            // ሰያፍ 1 (Top-Left to Bottom-Right)
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
-            
-            // ሰያፍ 2 (Top-Right to Bottom-Left) - በትክክል ተስተካክሏል
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
             if (winningLines.length === 0) return false;
