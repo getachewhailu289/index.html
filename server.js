@@ -17,7 +17,7 @@ app.use(express.static('public')); // የፊት ለፊት ፋይሎችዎ የሚ
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
-const ROOM_FILE = path.join(__dirname, 'room.json'); // አዲስ የተጨመረ - የክፍሉን ብዛት ለመያዝ
+const ROOM_FILE = path.join(__dirname, 'room.json'); // የክፍሉን ብዛት እና የተያዙ ካርቶች ለመያዝ
 
 function loadUsers() {
     if (!fs.existsSync(USERS_FILE)) {
@@ -51,16 +51,16 @@ function saveHistory(history) {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
-// አዲስ የተጨመሩ - የክፍሉን (Room) የተሸጠ ካርድ ብዛት መቆጣጠሪያዎች
+// የክፍሉን (Room) የተሸጠ ካርድ ብዛት እና የተያዙ ካርዶች መቆጣጠሪያ
 function loadRoom() {
     if (!fs.existsSync(ROOM_FILE)) {
-        fs.writeFileSync(ROOM_FILE, JSON.stringify({ soldCount: 0 }));
+        fs.writeFileSync(ROOM_FILE, JSON.stringify({ soldCount: 0, takenCards: [] }));
     }
     try {
         const data = fs.readFileSync(ROOM_FILE, 'utf8');
-        return data.trim() ? JSON.parse(data) : { soldCount: 0 };
+        return data.trim() ? JSON.parse(data) : { soldCount: 0, takenCards: [] };
     } catch (e) {
-        return { soldCount: 0 };
+        return { soldCount: 0, takenCards: [] };
     }
 }
 
@@ -121,7 +121,7 @@ setInterval(() => {
                 serverRoundStartTime = Date.now();
                 serverCalledBalls = [];
                 soldCardsCount = 0;
-                saveRoom({ soldCount: 0 }); // ሩሙንም ሪስታርት እናደርጋለን
+                saveRoom({ soldCount: 0, takenCards: [] }); // ሩሙንም ሪስታርት እናደርጋለን
             }, 3000);
         }
     }
@@ -134,7 +134,8 @@ app.get('/api/game-status', (req, res) => {
         success: true,
         roundStartTime: serverRoundStartTime,
         calledBalls: serverCalledBalls,
-        soldCount: room.soldCount || soldCardsCount
+        soldCount: room.soldCount || soldCardsCount,
+        takenCards: room.takenCards || []
     });
 });
 
@@ -143,15 +144,15 @@ app.get('/api/game-status', (req, res) => {
 // ---------------------------------------------------------
 app.get('/api/room-stats', (req, res) => {
     const room = loadRoom();
-    res.json({ success: true, soldCount: room.soldCount });
+    res.json({ success: true, soldCount: room.soldCount, takenCards: room.takenCards || [] });
 });
 
-// ጨዋታው ሲጀምር/ሲቀየር soldCount ወደ 0 ለመመለስ
+// ጨዋታው ሲጀምር/ሲቀየር soldCount እና takenCards ወደ ነበሩበት ለመመለስ
 app.post('/api/reset-room', (req, res) => {
     serverRoundStartTime = Date.now();
     serverCalledBalls = [];
     soldCardsCount = 0;
-    saveRoom({ soldCount: 0 });
+    saveRoom({ soldCount: 0, takenCards: [] });
     res.json({ success: true });
 });
 
@@ -200,12 +201,19 @@ app.get('/api/balance/:userId', (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ (Deduct Balance API)
+// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ እና ካርዱን ለመያዝ (Deduct Balance API)
 // ---------------------------------------------------------
 app.post('/api/deduct-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
     const amount = req.body.amount;
+    const cardNumber = req.body.cardNumber; // የካርቴላ ቁጥር ከፈረንጡ/ፍሮንትኤንድ መምጣት አለበት
     const users = loadUsers();
+    let room = loadRoom();
+
+    // ካርዱ አስቀድሞ በሌላ ሰው ተይዞ ከሆነ (Validation)
+    if (cardNumber && room.takenCards && room.takenCards.includes(cardNumber)) {
+        return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ ተመርጧል/ተሸጧል!' });
+    }
 
     let targetUser = null;
     if (Array.isArray(users)) {
@@ -226,8 +234,13 @@ app.post('/api/deduct-balance', (req, res) => {
     targetUser.balance = currentBalance - amount;
     saveUsers(users);
 
+    // ካርዱን ወደ ተያዘበት ሊስት መጨመር
+    if (cardNumber) {
+        if (!room.takenCards) room.takenCards = [];
+        room.takenCards.push(cardNumber);
+    }
+
     // የክፍሉን የተሸጠ ካርድ ብዛት መጨመር
-    let room = loadRoom();
     room.soldCount = (room.soldCount || 0) + 1;
     soldCardsCount = room.soldCount;
     saveRoom(room);
@@ -241,7 +254,9 @@ app.post('/api/deduct-balance', (req, res) => {
 app.post('/api/refund-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
     const amount = req.body.amount;
+    const cardNumber = req.body.cardNumber; // ከተሰረዘ ከ takenCards ውስጥ ማስወገድ እንዲቻል
     const users = loadUsers();
+    let room = loadRoom();
 
     let targetUser = null;
     if (Array.isArray(users)) {
@@ -257,8 +272,12 @@ app.post('/api/refund-balance', (req, res) => {
     targetUser.balance = (targetUser.balance || 0) + parseFloat(amount);
     saveUsers(users);
 
+    // ካርዱን ከተያዘበት ሊስት ውስጥ ማስወገድ
+    if (cardNumber && room.takenCards) {
+        room.takenCards = room.takenCards.filter(c => String(c) !== String(cardNumber));
+    }
+
     // የክፍሉን የተሸጠ ካርድ ብዛት መቀነስ
-    let room = loadRoom();
     room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
     soldCardsCount = room.soldCount;
     saveRoom(room);
