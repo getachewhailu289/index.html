@@ -574,11 +574,9 @@
             window.Telegram.WebApp.expand();
         }
 
-        // ከቴሌግራም ዌብ አፕ ዩዘር መረጃውን በትክክል ለመቀበል
         const webAppUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         let userTelegramId = webAppUser?.id;
 
-        // ዩዘር ਆይዲ ከሌለ ከ URL Parameters (Query String) ለመቀበል መሞከሪያ
         if (!userTelegramId) {
             const urlParams = new URLSearchParams(window.location.search);
             userTelegramId = urlParams.get('telegram_id') || localStorage.getItem('y_saved_telegram_id');
@@ -590,26 +588,22 @@
             userTelegramId = "guest_user";
         }
 
-        // የሰርቨርዎ ሊንክ
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
-        let serverTimeOffset = 0; // ከሰርቨር ሰዓት ጋር ያለውን ልዩነት ለማስተካከል
+        let serverTimeOffset = 0;
 
-        // የሰርቨርን ሰዓት እና የቦል መረጃዎች በየ 2 ሰኮንዱ ከሰርቨር የሚቀበል ፈንክሽን[cite: 18]
         async function syncGameWithServer() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/game-status`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    // የሰርቨርን መረጃዎች ለሁሉም ዲቫይስ በአንድነት እንጠቀማለን[cite: 18]
                     soldCount = data.soldCount;
                     calledBalls = data.calledBalls;
                     
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
                     
-                    // በሰርቨር የተገኙትን ቦሎች በጠረጴዛው ላይ በህብረት ማሳየት[cite: 18]
                     updateBoardAndCards();
                 }
             } catch (e) {
@@ -617,14 +611,12 @@
             }
         }
 
-        // በየ 2 ሰኮንዱ ከሰርቨር ጋር ማመሳሰል (ማንኛውም ዲቫይስ ላይ አንድ አይነት እንዲሆን)[cite: 18]
         setInterval(syncGameWithServer, 2000);
 
         const cardPrice = 10.00;
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
         let balance = 0.00;
 
-        // ከሰርቨር የተጠቃሚውን ባላንስ በቀጥታ ማምጣት
         async function fetchServerBalance() {
             try {
                 const users = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
@@ -640,7 +632,6 @@
 
         fetchServerBalance();
 
-        // ከሰርቨር አጠቃላይ የተጫዋቾችን/ካርቴላዎችን ብዛት የሚያመጣ ፈንክሽን[cite: 13]
         async function fetchRoomStats() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/room-stats`);
@@ -648,11 +639,9 @@
                 if (data.success) {
                     soldCount = data.soldCount;
                     
-                    // 1. ከካርቴላ መምረጫ ላይ ያለውን የ SOLD ቦታ ማዘመን[cite: 20]
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
 
-                    // 2. ከማጫወቻ ፕሌየር (PLAYERS) ከሚለዉ ቦታ ላይ ድምራቸውን ማስቀመጥ[cite: 20]
                     const playersVal = document.getElementById('players-val');
                     if (playersVal) playersVal.innerText = soldCount;
                 }
@@ -661,7 +650,6 @@
             }
         }
 
-        // በየ 2 ሰኮንዱ አጠቃላይ የክፍሉን የተሸጡ ካርዶች ብዛት ማመሳሰል[cite: 18]
         setInterval(fetchRoomStats, 2000);
 
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
@@ -827,7 +815,6 @@
             }, 1000);
         }
 
-        // ቦሎች እና ሰርቨር ላይ ያሉ ለውጦች ሲመጡ ጠረጴዛውንና ካርዶችን የሚያድስ ፈንክሽን
         function updateBoardAndCards() {
             calledBalls.forEach(drawnBall => {
                 const targetCell = document.getElementById(`ball-num-${drawnBall}`);
@@ -1040,7 +1027,6 @@
             let prize = soldCount * 8;
             if (derashVal) derashVal.innerText = prize + ' ETB';
             
-            // እዚህ ጋር ከካርቴላ መምረጫው የተሸጠው አጠቃላይ Sold ብዛት በጨዋታ ሰሌዳው ላይ ለ PLAYERS ተብሎ ይቀመጣል[cite: 20]
             if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
@@ -1135,6 +1121,7 @@
             saveState();
         }
 
+        // --- እዚህ ጋር የተስተካከለው የዲያጎናል መስመር ማረጋገጫ ኮድ ተካትቷል ---
         function checkWinningCondition(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return false;
@@ -1156,13 +1143,18 @@
 
             let winningLines = [];
 
+            // አግድም (Rows)
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
             }
+            // ቁመት (Columns)
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
             }
+            // ሰያፍ 1 (Top-Left to Bottom-Right)
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
+            
+            // ሰያፍ 2 (Top-Right to Bottom-Left) - በትክክል ተስተካክሏል
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
 
             if (winningLines.length === 0) return false;
