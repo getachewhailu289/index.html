@@ -590,6 +590,7 @@
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
+        // የሰርቨር ሰዓት እና መረጃ ማመሳሰል
         async function syncGameWithServer() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/game-status`);
@@ -598,7 +599,17 @@
                 if (data.success) {
                     soldCount = data.soldCount;
                     calledBalls = data.calledBalls;
-                    
+                    if (data.roundStartTime) {
+                        serverRoundStartTime = data.roundStartTime;
+                    }
+
+                    const elapsedSeconds = Math.floor((Date.now() - serverRoundStartTime) / 1000);
+                    if (elapsedSeconds >= 40 && !gameStarted) {
+                        gameStarted = true;
+                        localStorage.setItem('y_gameStarted', 'true');
+                        switchToGamePage();
+                    }
+
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
                     
@@ -609,7 +620,7 @@
             }
         }
 
-        setInterval(syncGameWithServer, 2000);
+        setInterval(syncGameWithServer, 1000);
 
         const cardPrice = 10.00;
         let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
@@ -656,12 +667,12 @@
         let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
 
-        let roundStartTime = localStorage.getItem('y_roundStartTime');
-        if (!roundStartTime) {
-            roundStartTime = Date.now();
-            localStorage.setItem('y_roundStartTime', roundStartTime);
+        let serverRoundStartTime = localStorage.getItem('y_roundStartTime');
+        if (!serverRoundStartTime) {
+            serverRoundStartTime = Date.now();
+            localStorage.setItem('y_roundStartTime', serverRoundStartTime);
         } else {
-            roundStartTime = parseInt(roundStartTime);
+            serverRoundStartTime = parseInt(serverRoundStartTime);
         }
 
         function generateColumnNumber(colIndex) {
@@ -713,56 +724,13 @@
         updateDisplay();
 
         let mainInterval = null;
-        evaluateGameStateByTime();
-
-        function evaluateGameStateByTime() {
-            const now = Date.now();
-            const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
-
-            if (!gameStarted) {
-                let remainingBuyTime = 40 - elapsedSeconds;
-                if (remainingBuyTime <= 0) {
-                    gameStarted = true;
-                    localStorage.setItem('y_gameStarted', 'true');
-                    roundStartTime = Date.now();
-                    switchToGamePage();
-                } else {
-                    startGlobalLoop();
-                }
-            } else {
-                let gameElapsed = elapsedSeconds - 40;
-                if (gameElapsed < 0) gameElapsed = 0;
-                let expectedBallsCount = Math.floor(gameElapsed / 5);
-
-                if (expectedBallsCount > 75) expectedBallsCount = 75;
-
-                if (calledBalls.length < expectedBallsCount && calledBalls.length < 75) {
-                    let allPossibleBalls = Array.from({length: 75}, (_, i) => i + 1);
-                    let missingCount = expectedBallsCount - calledBalls.length;
-                    for (let m = 0; m < missingCount; m++) {
-                        let available = allPossibleBalls.filter(n => !calledBalls.includes(n));
-                        if (available.length === 0) break;
-                        let randIndex = Math.floor(Math.random() * available.length);
-                        calledBalls.push(available[randIndex]);
-                    }
-                    localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
-                }
-
-                if (calledBalls.length >= 75) {
-                    showNotification('ጨዋታው አልቋል! ወደ ቀጣዩ ራውንድ በመመለስ ላይ...');
-                    setTimeout(() => resetGameLoopLocally(), 1500);
-                    return;
-                }
-
-                switchToGamePage();
-            }
-        }
+        startGlobalLoop();
 
         function startGlobalLoop() {
             if (mainInterval) clearInterval(mainInterval);
             mainInterval = setInterval(() => {
                 const now = Date.now();
-                const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
+                const elapsedSeconds = Math.floor((now - serverRoundStartTime) / 1000);
 
                 if (!gameStarted) {
                     let timeLeft = 40 - elapsedSeconds;
@@ -770,39 +738,13 @@
                     if (timerEl) timerEl.innerText = Math.max(0, timeLeft) + 's';
 
                     if (timeLeft <= 0) {
-                        clearInterval(mainInterval);
                         gameStarted = true;
                         localStorage.setItem('y_gameStarted', 'true');
-                        roundStartTime = Date.now();
                         switchToGamePage();
                     }
                 } else {
-                    let gameElapsed = Math.floor((now - roundStartTime) / 1000);
-                    let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
-
-                    if (targetBallsCount > calledBalls.length && calledBalls.length < 75) {
-                        let availableBalls = Array.from({length: 75}, (_, i) => i + 1).filter(n => !calledBalls.includes(n));
-                        if (availableBalls.length > 0) {
-                            let randomIndex = Math.floor(Math.random() * availableBalls.length);
-                            let drawnBall = availableBalls[randomIndex];
-                            calledBalls.push(drawnBall);
-                            localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
-
-                            updateBoardAndCards();
-
-                            let hasWon = false;
-                            selectedCards.forEach(cardNum => {
-                                if (checkWinningCondition(cardNum)) {
-                                    hasWon = true;
-                                    if (mainInterval) clearInterval(mainInterval);
-                                    let prize = soldCount * 8;
-                                    updateServerBalanceOnWin(prize, cardNum);
-                                }
-                            });
-
-                            if (hasWon) return;
-                        }
-                    }
+                    const ballsVal = document.getElementById('balls-val');
+                    if (ballsVal) ballsVal.innerText = calledBalls.length + '/75';
 
                     if (calledBalls.length >= 75) {
                         if (mainInterval) clearInterval(mainInterval);
@@ -1119,58 +1061,6 @@
             saveState();
         }
 
-        function checkWinningCondition(cardNum) {
-            const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
-            if (!matrixBox) return false;
-            const cells = matrixBox.querySelectorAll('.um-cell');
-            let grid = [];
-            let row = [];
-            
-            cells.forEach((cell, index) => {
-                let val = cell.dataset.val;
-                row.push({
-                    marked: cell.classList.contains('marked'),
-                    value: val === '★' ? '★' : parseInt(val)
-                });
-                if ((index + 1) % 5 === 0) {
-                    grid.push(row);
-                    row = [];
-                }
-            });
-
-            let winningLines = [];
-
-            for (let r = 0; r < 5; r++) {
-                if (grid[r].every(cell => cell.marked)) winningLines.push({type: 'row', index: r});
-            }
-            for (let c = 0; c < 5; c++) {
-                if (grid.every(row => row[c].marked)) winningLines.push({type: 'col', index: c});
-            }
-            if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningLines.push({type: 'diag1'});
-            if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningLines.push({type: 'diag2'});
-
-            if (winningLines.length === 0) return false;
-
-            let uncalledNumbers = [];
-            winningLines.forEach(line => {
-                let lineCells = [];
-                if (line.type === 'row') lineCells = grid[line.index];
-                else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
-                else if (line.type === 'diag1') lineCells = [grid[0][0], grid[1][1], grid[2][2], grid[3][3], grid[4][4]];
-                else if (line.type === 'diag2') lineCells = [grid[0][4], grid[1][3], grid[2][2], grid[3][1], grid[4][0]];
-
-                lineCells.forEach(cell => {
-                    if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
-                        if (!uncalledNumbers.includes(cell.value)) {
-                            uncalledNumbers.push(cell.value);
-                        }
-                    }
-                });
-            });
-
-            return uncalledNumbers.length === 0;
-        }
-
         function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
@@ -1248,7 +1138,7 @@
             selectedCards = [];
             markedCellsState = {};
             soldCount = 0;
-            roundStartTime = Date.now();
+            serverRoundStartTime = Date.now();
 
             document.querySelectorAll('.number-cell').forEach(c => c.classList.remove('selected'));
             fetchServerBalance();
