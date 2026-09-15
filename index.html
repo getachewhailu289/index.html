@@ -647,14 +647,21 @@
                 const data = await response.json();
                 if (data.success) {
                     soldCount = data.soldCount;
+                    
+                    // 1. ከካርቴላ መምረጫ ላይ ያለውን የ SOLD ቦታ ማዘመን[cite: 20]
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
+
+                    // 2. ከማጫወቻ ፕሌየር (PLAYERS) ከሚለዉ ቦታ ላይ ድምራቸውን ማስቀመጥ[cite: 20]
+                    const playersVal = document.getElementById('players-val');
+                    if (playersVal) playersVal.innerText = soldCount;
                 }
             } catch (e) {
                 console.log('Room stats ማምጣት አልተቻለም');
             }
         }
 
+        // በየ 2 ሰኮንዱ አጠቃላይ የክፍሉን የተሸጡ ካርዶች ብዛት ማመሳሰል[cite: 18]
         setInterval(fetchRoomStats, 2000);
 
         let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
@@ -1032,6 +1039,8 @@
             const playersVal = document.getElementById('players-val');
             let prize = soldCount * 8;
             if (derashVal) derashVal.innerText = prize + ' ETB';
+            
+            // እዚህ ጋር ከካርቴላ መምረጫው የተሸጠው አጠቃላይ Sold ብዛት በጨዋታ ሰሌዳው ላይ ለ PLAYERS ተብሎ ይቀመጣል[cite: 20]
             if (playersVal) playersVal.innerText = soldCount;
 
             const bGrid = document.getElementById('ballsGrid1To75');
@@ -1224,7 +1233,7 @@
                 lineCells.forEach(cell => {
                     if (cell.value !== '★' && !calledBalls.includes(cell.value)) {
                         if (!uncalledNumbers.includes(cell.value)) {
-                            uncalledNumbers.path.push(cell.value); // corrected scope
+                            uncalledNumbers.push(cell.value);
                         }
                     }
                 });
