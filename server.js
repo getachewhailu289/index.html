@@ -17,6 +17,7 @@ app.use(express.static('public')); // የፊት ለፊት ፋይሎችዎ የሚ
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
+const ROOM_FILE = path.join(__dirname, 'room.json'); // አዲስ የተጨመረ - የክፍሉን ብዛት ለመያዝ
 
 function loadUsers() {
     if (!fs.existsSync(USERS_FILE)) {
@@ -50,6 +51,23 @@ function saveHistory(history) {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
+// አዲስ የተጨመሩ - የክፍሉን (Room) የተሸጠ ካርድ ብዛት መቆጣጠሪያዎች
+function loadRoom() {
+    if (!fs.existsSync(ROOM_FILE)) {
+        fs.writeFileSync(ROOM_FILE, JSON.stringify({ soldCount: 0 }));
+    }
+    try {
+        const data = fs.readFileSync(ROOM_FILE, 'utf8');
+        return data.trim() ? JSON.parse(data) : { soldCount: 0 };
+    } catch (e) {
+        return { soldCount: 0 };
+    }
+}
+
+function saveRoom(roomData) {
+    fs.writeFileSync(ROOM_FILE, JSON.stringify(roomData, null, 2));
+}
+
 function addTransaction(userId, type, amount, details = '') {
     const history = loadHistory();
     if (!history[userId]) {
@@ -73,6 +91,20 @@ function addTransaction(userId, type, amount, details = '') {
 }
 
 const pendingWithdrawals = {};
+
+// ---------------------------------------------------------
+// 0. አጠቃላይ የክፍሉን (Room) መረጃ ከሰርቨር ለማንበብ የሚረዳ API (አዲስ)
+// ---------------------------------------------------------
+app.get('/api/room-stats', (req, res) => {
+    const room = loadRoom();
+    res.json({ success: true, soldCount: room.soldCount });
+});
+
+// ጨዋታው ሲጀምር/ሲቀየር soldCount ወደ 0 ለመመለስ (አዲስ)
+app.post('/api/reset-room', (req, res) => {
+    saveRoom({ soldCount: 0 });
+    res.json({ success: true });
+});
 
 // ---------------------------------------------------------
 // 1. የባላንስ መረጃን ከሰርቨር ለማንበብ (Get Balance API)
@@ -119,7 +151,7 @@ app.get('/api/balance/:userId', (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ (Deduct Balance API)
+// 2. ካርቴላ ሲመርጥ ከባላንስ ላይ ዋጋ ለመቀነስ (Deduct Balance API) - ተስተካክሏል
 // ---------------------------------------------------------
 app.post('/api/deduct-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
@@ -145,11 +177,16 @@ app.post('/api/deduct-balance', (req, res) => {
     targetUser.balance = currentBalance - amount;
     saveUsers(users);
 
-    return res.json({ success: true, balance: targetUser.balance });
+    // የክፍሉን የተሸጠ ካርድ ብዛት መጨመር
+    let room = loadRoom();
+    room.soldCount = (room.soldCount || 0) + 1;
+    saveRoom(room);
+
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
 // ---------------------------------------------------------
-// 2.1. ካርቴላ ሲሰርዝ ገንዘብ ወደ ባላንስ ለመመለስ (Refund Balance API)
+// 2.1. ካርቴላ ሲሰርዝ ገንዘብ ወደ ባላንስ ለመመለስ (Refund Balance API) - ተስተካክሏል
 // ---------------------------------------------------------
 app.post('/api/refund-balance', (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
@@ -170,7 +207,12 @@ app.post('/api/refund-balance', (req, res) => {
     targetUser.balance = (targetUser.balance || 0) + parseFloat(amount);
     saveUsers(users);
 
-    return res.json({ success: true, balance: targetUser.balance });
+    // የክፍሉን የተሸጠ ካርድ ብዛት መቀነስ
+    let room = loadRoom();
+    room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
+    saveRoom(room);
+
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
 // ---------------------------------------------------------
