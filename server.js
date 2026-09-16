@@ -91,6 +91,7 @@ function addTransaction(userId, type, amount, details = '') {
 }
 
 const pendingWithdrawals = {};
+const adminBalanceStates = {}; 
 
 // ---------------------------------------------------------
 // የጨዋታው መረጃዎች በሰርቨር ሜሞሪ ውስጥ
@@ -99,7 +100,7 @@ let serverRoundStartTime = Date.now();
 let serverCalledBalls = [];
 let soldCardsCount = 0; 
 
-// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን በትክክል ይቆጣጠራል (ችግር 1 እና 2 መፍትሄ)
+// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን በትክክል ይቆጣጠራል
 setInterval(() => {
     let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
     
@@ -126,7 +127,9 @@ setInterval(() => {
     }
 }, 1000);
 
-// ተጫዋቾች የጨዋታውን ሁኔታ (ሰዓት፣ የወጡ ቦሎች፣ Sold ብዛት፣ Taken Cards) የሚጠይቁበት የተስተካከለ API
+// ---------------------------------------------------------
+// REST API Endpoints
+// ---------------------------------------------------------
 app.get('/api/game-status', (req, res) => {
     const room = loadRoom();
     res.json({
@@ -151,9 +154,6 @@ app.post('/api/reset-room', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------------------------------------------------------
-// የባላንስ መቆጣጠሪያ API ዎች
-// ---------------------------------------------------------
 app.get('/api/balance', (req, res) => {
     const telegramId = req.query.telegram_id || req.query.user_id || req.query.id;
     if (!telegramId) return res.status(400).json({ success: false, error: 'Telegram ID is required' });
@@ -242,40 +242,93 @@ app.post('/api/update-balance', (req, res) => {
     return res.json({ success: true, balance: targetUser.balance });
 });
 
-// ---------------------------------------------------------
-// አዲስ የተጨመረ ፊቸር፡ ሪፈራል ሲስተም (Referral Leaderboard & Bonus API)
-// ---------------------------------------------------------
+// አውቶማቲክ የ SMS / Notification Webhook Endpoint
+app.post('/api/webhook/sms', (req, res) => {
+    const { phone, amount, message } = req.body;
+
+    if (!phone || !amount) {
+        return res.status(400).json({ success: false, message: 'ስልክ ቁጥር እና የብር መጠን ያስፈልጋል' });
+    }
+
+    const users = loadUsers();
+    let targetUser = null;
+    let targetKey = null;
+    const cleanPhone = phone.trim();
+
+    if (Array.isArray(users)) {
+        targetUser = users.find(u => u.phone && (u.phone === cleanPhone || u.phone.includes(cleanPhone) || cleanPhone.includes(u.phone)));
+        if (targetUser) targetKey = targetUser.telegram_id || targetUser.id;
+    } else {
+        for (let id of Object.keys(users)) {
+            if (users[id].phone && (users[id].phone === cleanPhone || users[id].phone.includes(cleanPhone) || cleanPhone.includes(users[id].phone))) {
+                targetUser = users[id];
+                targetKey = id;
+                break;
+            }
+        }
+    }
+
+    if (!targetUser) {
+        return res.json({ success: false, message: 'በዚህ ስልክ ቁጥር የተመዘገበ ተጠቃሚ አልተገኘም' });
+    }
+
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+        return res.json({ success: false, message: 'ልክ ያልሆነ የብር መጠን' });
+    }
+
+    targetUser.balance = (targetUser.balance || 0) + numericAmount;
+    saveUsers(users);
+    addTransaction(targetKey, 'deposit', numericAmount, message || 'በአውቶማቲክ SMS የተሞላ');
+
+    bot.telegram.sendMessage(
+        targetKey,
+        `💳 <b>አውቶማቲክ የባንክ ክፍያ ተረጋገጠ!</b>\n\n💰 ገቢ የተደረገ: <b>${numericAmount} ETB</b>\n💵 አዲስ ቀሪ ሂሳብዎ: <b>${targetUser.balance} ETB</b>\n\nእናመሰግናለን! 🎮`,
+        { parse_mode: 'HTML' }
+    ).catch(() => {});
+
+    return res.json({ success: true, message: 'ბალანსი በተሳካ ሁኔታ ተሞልቷል', newBalance: targetUser.balance });
+});
+
+// ሪፈራል ሊደርቦርድ API
 app.get('/api/leaderboard', (req, res) => {
     const users = loadUsers();
     let userList = Array.isArray(users) ? users : Object.keys(users).map(id => ({ telegram_id: id, ...users[id] }));
     
-    // በባላንስ ብዛት ደርድር (Top Winners)
     userList.sort((a, b) => (b.balance || 0) - (a.balance || 0));
     res.json({ success: true, topUsers: userList.slice(0, 10) });
 });
 
-// Bot Commands & Handlers
+// ---------------------------------------------------------
+// Telegram Bot Handlers & Commands
+// ---------------------------------------------------------
 const handleStartAndRegister = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
     const firstName = ctx.from.first_name || 'ተጠቃሚ';
-    const startPayload = ctx.payload; // የሪፈራል ኮድ ካለ ለመያዝ
+    const startPayload = ctx.payload;
 
-    let userExists = false;
     if (Array.isArray(users)) {
         let user = users.find(u => String(u.telegram_id) === userId);
         if (!user) {
             users.push({ telegram_id: userId, firstName: firstName, phone: '', balance: 0, referredBy: startPayload || null });
+            if (startPayload && startPayload !== userId) {
+                let referrer = users.find(u => String(u.telegram_id) === String(startPayload));
+                if (referrer) {
+                    referrer.balance = (referrer.balance || 0) + 5;
+                    bot.telegram.sendMessage(startPayload, `🎁 <b>እንኳን ደስ አለዎት!</b> አዲስ ጓደኛ በመጋበዝዎ <b>5.00 ETB</b> ቦነስ ተሸልመዋል።`, { parse_mode: 'HTML' }).catch(()=>{});
+                }
+            }
             saveUsers(users);
-        } else {
-            userExists = true;
         }
     } else {
         if (!users[userId]) {
             users[userId] = { firstName: firstName, phone: '', balance: 0, referredBy: startPayload || null };
+            if (startPayload && startPayload !== userId && users[startPayload]) {
+                users[startPayload].balance = (users[startPayload].balance || 0) + 5;
+                bot.telegram.sendMessage(startPayload, `🎁 <b>እንኳን ደስ አለዎት!</b> አዲስ ጓደኛ በመጋበዝዎ <b>5.00 ETB</b> ቦነስ ተሸልመዋል።`, { parse_mode: 'HTML' }).catch(()=>{});
+            }
             saveUsers(users);
-        } else {
-            userExists = true;
         }
     }
 
@@ -308,7 +361,6 @@ const handleStartAndRegister = (ctx) => {
 bot.start(handleStartAndRegister);
 bot.command('register', handleStartAndRegister);
 
-// የሊደርቦርድ ኮልባክ ሃንድለር
 bot.action('show_leaderboard', async (ctx) => {
     const users = loadUsers();
     let userList = Array.isArray(users) ? users : Object.keys(users).map(id => ({ telegram_id: id, ...users[id] }));
@@ -465,9 +517,127 @@ bot.action('history_withdrawal', (ctx) => {
     return ctx.editMessageText(message, { parse_mode: 'HTML' });
 });
 
+bot.command('users', (ctx) => {
+    if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("አድሚን ብቻ!");
+    const users = loadUsers();
+    let message = `👥 <b>አጠቃላይ ተጠቃሚዎች:</b>\n\n`;
+    
+    if (Array.isArray(users)) {
+        for (let u of users) {
+            message += `👤 ${u.firstName || 'ተጠቃሚ'} - ID: <code>${u.telegram_id || u.id}</code> - 📱 ${u.phone || 'ስልክ የለም'} - 💰 ${u.balance || 0} ETB\n`;
+        }
+    } else {
+        for (let id of Object.keys(users)) {
+            let u = users[id];
+            message += `👤 ${u.firstName} - ID: <code>${id}</code> - 📱 ${u.phone || 'ስልክ የለም'} - 💰 ${u.balance || 0} ETB\n`;
+        }
+    }
+    return ctx.reply(message, { parse_mode: 'HTML' });
+});
+
+// አድሚን ባላንስ ማስተካከያ (ሁሉንም መንገድ ይደግፋል: በኮማንድ /addbalance <ID> <amount> ወይም በኢንተራክቲቭ ስልክ ፍለጋ)
+const handleAddBalance = (ctx) => {
+    if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("❌ አድሚን ብቻ!");
+
+    const args = ctx.message.text.split(' ');
+    if (args.length < 3) {
+        adminBalanceStates[ctx.from.id] = { step: 'waiting_for_phone' };
+        return ctx.reply("🛠 <b>የባላንስ ማስተካከያ</b>\n\nእባክዎ የደንበኛውን <b>ስልክ ቁጥር</b> ያስገቡ (ለምሳሌ: +2519...):", { parse_mode: 'HTML' });
+    }
+
+    const targetIdentifier = args[1];
+    const amount = parseFloat(args[2]);
+    if (isNaN(amount)) return ctx.reply("❌ ትክክለኛ መጠን ያስገቡ!");
+
+    const users = loadUsers();
+    let targetUserId = null;
+    let targetUserObj = null;
+
+    if (Array.isArray(users)) {
+        let targetUser = users.find(u => String(u.telegram_id) === String(targetIdentifier) || String(u.id) === String(targetIdentifier) || String(u.phone) === String(targetIdentifier));
+        if (targetUser) {
+            targetUserId = targetUser.telegram_id || targetUser.id;
+            targetUser.balance = (targetUser.balance || 0) + amount;
+            targetUserObj = targetUser;
+        }
+    } else {
+        for (let id of Object.keys(users)) {
+            if (id === targetIdentifier || users[id].phone === targetIdentifier) {
+                targetUserId = id;
+                users[targetUserId].balance = (users[targetUserId].balance || 0) + amount;
+                targetUserObj = users[id];
+                break;
+            }
+        }
+    }
+
+    if (!targetUserId) return ctx.reply("❌ ተጠቃሚው አልተገኘም!");
+
+    saveUsers(users);
+    addTransaction(targetUserId, amount > 0 ? 'deposit' : 'withdrawal', Math.abs(amount), 'በአድሚን የተስተካከለ');
+
+    ctx.reply(`✅ <b>በተሳካ ሁኔታ ተፈጽሟል!</b> ID: <code>${targetUserId}</code> - ለውጥ: <b>${amount} ETB</b> - አዲስ ቀሪ ሂሳብ: <b>${targetUserObj.balance} ETB</b>`, { parse_mode: 'HTML' });
+    bot.telegram.sendMessage(targetUserId, `💳 <b>አካውንትዎ ተስተካክሏል!</b> በሂሳብዎ ላይ <b>${amount} ETB</b> ተስተካክሎ ተጨምሯል። አጠቃላይ ቀሪ ሂሳብዎ: <b>${targetUserObj.balance} ETB</b> ነው።`, { parse_mode: 'HTML' }).catch(() => {});
+};
+
+bot.command('addbalance', handleAddBalance);
+bot.command('add', handleAddBalance);
+
+//  मैसेज እና ስቴፕ መቆጣጠሪያ ሃንድለር
 bot.on('message', async (ctx, next) => {
     if (!ctx.message.text) return next();
     const text = ctx.message.text;
+    const adminId = ctx.from.id;
+
+    // የአድሚን ስቴፕ ማስተዳደሪያ (በስልክ ቁጥር ስቴፕ የገባ ከሆነ)
+    if (adminId.toString() === ADMIN_TELEGRAM_ID.toString() && adminBalanceStates[adminId]) {
+        let state = adminBalanceStates[adminId];
+        
+        if (state.step === 'waiting_for_phone') {
+            state.phone = text.trim();
+            state.step = 'waiting_for_amount';
+            return ctx.reply(`📱 ስልክ ቁጥር: <b>${state.phone}</b> ተይዟል።\n\n💰 አሁን መጨመር ወይም መቀነስ የሚፈልጉትን <b>የብር መጠን</b> ያስገቡ (ለምሳሌ: 50 ወይም -20):`, { parse_mode: 'HTML' });
+        } 
+        else if (state.step === 'waiting_for_amount') {
+            const amount = parseFloat(text.trim());
+            if (isNaN(amount)) {
+                return ctx.reply("❌ እባክዎ ትክክለኛ የብር መጠን (ቁጥር ብቻ) ያስገቡ!");
+            }
+
+            const users = loadUsers();
+            let targetUser = null;
+            let targetKey = null;
+
+            if (Array.isArray(users)) {
+                targetUser = users.find(u => String(u.phone) === String(state.phone) || String(u.phone).includes(state.phone));
+                if (targetUser) targetKey = targetUser.telegram_id || targetUser.id;
+            } else {
+                for (let id of Object.keys(users)) {
+                    if (users[id].phone && String(users[id].phone).includes(state.phone)) {
+                        targetUser = users[id];
+                        targetKey = id;
+                        break;
+                    }
+                }
+            }
+
+            if (!targetUser) {
+                delete adminBalanceStates[adminId];
+                return ctx.reply(`❌ በዚህ ስልክ ቁጥር (${state.phone}) የተመዘገበ ተጠቃሚ አልተገኘም!`);
+            }
+
+            targetUser.balance = (targetUser.balance || 0) + amount;
+            saveUsers(users);
+            addTransaction(targetKey, amount > 0 ? 'deposit' : 'withdrawal', Math.abs(amount), 'በአድሚን የተስተካከለ');
+
+            delete adminBalanceStates[adminId];
+
+            ctx.reply(`✅ <b>በተሳካ ሁኔታ ተፈጽሟል!</b>\n\n👤 ስም: ${targetUser.firstName}\n📱 ስልክ: ${targetUser.phone}\n💰 የተደረገ ለውጥ: <b>${amount} ETB</b>\n💵 አዲስ ቀሪ ሂሳብ: <b>${targetUser.balance} ETB</b>`, { parse_mode: 'HTML' });
+            
+            bot.telegram.sendMessage(targetKey, `💳 <b>አካውንትዎ ተስተካክሏል!</b>\nበሂሳብዎ ላይ <b>${amount} ETB</b> ተስተካክሎ ተጨምሯል። አጠቃላይ ቀሪ ሂሳብዎ: <b>${targetUser.balance} ETB</b> ነው።`, { parse_mode: 'HTML' }).catch(() => {});
+            return;
+        }
+    }
 
     if (text.startsWith('/') || text.includes('Balance') || text.includes('Deposit') || text.includes('History') || text.includes('Withdraw')) {
         return next();
@@ -479,6 +649,7 @@ bot.on('message', async (ctx, next) => {
 
     const users = loadUsers();
 
+    // የተጠቃሚ የገንዘብ ማውጣት (Withdrawal) ስቴፖች
     if (pendingWithdrawals[userId]) {
         const state = pendingWithdrawals[userId];
         if (state.step === 'waiting_for_withdraw_phone') {
@@ -521,6 +692,7 @@ bot.on('message', async (ctx, next) => {
         }
     }
 
+    // የክፍያ ማረጋገጫ (Deposit Screenshot/SMS) ለአድሚን ማስተላለፍ
     await bot.telegram.sendMessage(
         ADMIN_TELEGRAM_ID,
         `📥 <b>አዲስ የክፍያ ማረጋገጫ ጥያቄ!</b>\n\n👤 ስም: ${firstName}\n🆔 ID: <code>${userId}</code>\n💬 መልዕክት:\n<code>${text}</code>\n\nገንዘብ ለመጨመር:\n/addbalance ${userId} [መጠን]`,
@@ -534,65 +706,6 @@ bot.on('message', async (ctx, next) => {
         ])
     });
 });
-
-bot.command('users', (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("አድሚን ብቻ!");
-    const users = loadUsers();
-    let message = `👥 <b>አጠቃላይ ተጠቃሚዎች:</b>\n\n`;
-    
-    if (Array.isArray(users)) {
-        for (let u of users) {
-            message += `👤 ${u.firstName || 'ተጠቃሚ'} - ID: <code>${u.telegram_id || u.id}</code> - 💰 ${u.balance || 0} ETB\n`;
-        }
-    } else {
-        for (let id of Object.keys(users)) {
-            let u = users[id];
-            message += `👤 ${u.firstName} - ID: <code>${id}</code> - 💰 ${u.balance || 0} ETB\n`;
-        }
-    }
-    return ctx.reply(message, { parse_mode: 'HTML' });
-});
-
-const handleAddBalance = (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("❌ አድሚን ብቻ!");
-
-    const args = ctx.message.text.split(' ');
-    if (args.length < 3) return ctx.reply("❌ አጠቃቀም: /addbalance <ID> <መጠን>");
-
-    const targetIdentifier = args[1];
-    const amount = parseFloat(args[2]);
-    if (isNaN(amount) || amount <= 0) return ctx.reply("❌ ትክክለኛ መጠን ያስገቡ!");
-
-    const users = loadUsers();
-    let targetUserId = null;
-
-    if (Array.isArray(users)) {
-        let targetUser = users.find(u => String(u.telegram_id) === String(targetIdentifier) || String(u.id) === String(targetIdentifier));
-        if (targetUser) {
-            targetUserId = targetUser.telegram_id || targetUser.id;
-            targetUser.balance = (targetUser.balance || 0) + amount;
-        }
-    } else {
-        for (let id of Object.keys(users)) {
-            if (id === targetIdentifier) {
-                targetUserId = id;
-                users[targetUserId].balance = (users[targetUserId].balance || 0) + amount;
-                break;
-            }
-        }
-    }
-
-    if (!targetUserId) return ctx.reply("❌ ተጠቃሚው አልተገኘም!");
-
-    saveUsers(users);
-    addTransaction(targetUserId, 'deposit', amount, 'በአድሚን የተጫነ');
-
-    ctx.reply(`✅ <b>ገቢ ተደርጓል!</b> ID: <code>${targetUserId}</code> - መጠን: <b>${amount} ETB</b>`, { parse_mode: 'HTML' });
-    bot.telegram.sendMessage(targetUserId, `💳 <b>የብር ተቀማጭ ተሳክቷል!</b> <b>${amount} ETB</b> ተጨምሯል።`, { parse_mode: 'HTML' }).catch(() => {});
-};
-
-bot.command('addbalance', handleAddBalance);
-bot.command('add', handleAddBalance);
 
 bot.launch();
 
