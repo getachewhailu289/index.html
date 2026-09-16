@@ -612,7 +612,7 @@
                     calledBalls = data.calledBalls || [];
                     soldCount = data.soldCount || 0;
 
-                    let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
+                    let elapsed = Math.floor((Date.now() - roundStartTime) / 3000);
 
                     if (elapsed >= 40) {
                         if (!gameStarted) {
@@ -638,7 +638,7 @@
             }
         }
 
-        setInterval(syncGameWithServer, 1000);
+        setInterval(syncGameWithServer, 3000);
 
         async function fetchServerBalance() {
             try {
