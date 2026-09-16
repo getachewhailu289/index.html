@@ -8,7 +8,7 @@ const cors = require('cors');
 
 const BOT_TOKEN = '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY'; // የቦት ቶከንዎ
 const ADMIN_TELEGRAM_ID = 2119423483; // የአድሚን ID
-const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html/'; // የ GitHub Pages ሊንክዎ
+const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html'; // ⬅️ ሰያፍ (/) ተወግዷል
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
@@ -127,7 +127,6 @@ function broadcastGameStatus() {
 // በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን ይቆጣጠራል፣ ሲቀየሩም ለሁሉም ዲቫይሶች በWebSocket ይልካል
 setInterval(() => {
     let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
-    let previousBallsLength = serverCalledBalls.length;
     
     if (elapsed >= 40) {
         let gameElapsed = elapsed - 40;
@@ -149,15 +148,12 @@ setInterval(() => {
         }
     }
 
-    // ሁኔታዎች ሲቀየሩ (ቦል ሲወጣ ወይም ጨዋታ ሲታደስ) ለሁሉም ኮኔክሽኖች እናሳውቃለን
     broadcastGameStatus();
 }, 1000);
 
 // WebSocket Connection Handler
 wss.on('connection', (ws) => {
     console.log('🔗 አዲስ ዲቫይስ ከሰርቨር ጋር ተገናኝቷል!');
-    
-    // ሲገናኝ ወዲያውኑ የአሁኑን የጨዋታ ሁኔታ እንልክለታለን
     const room = loadRoom();
     ws.send(JSON.stringify({
         type: 'GAME_STATUS',
@@ -174,7 +170,7 @@ wss.on('connection', (ws) => {
 });
 
 // ---------------------------------------------------------
-// REST API Endpoints (አሁንም ለባላንስ እና ሌሎች ስራዎች አገልግሎት ላይ ይውላሉ)
+// REST API Endpoints
 // ---------------------------------------------------------
 app.get('/api/game-status', (req, res) => {
     const room = loadRoom();
@@ -197,7 +193,7 @@ app.post('/api/reset-room', (req, res) => {
     serverCalledBalls = [];
     soldCardsCount = 0;
     saveRoom({ soldCount: 0, takenCards: [] });
-    broadcastGameStatus(); // ለሁሉም አዳዲስ ለውጦችን በሰዓቱ ማሳወቅ
+    broadcastGameStatus();
     res.json({ success: true });
 });
 
@@ -248,7 +244,7 @@ app.post('/api/deduct-balance', (req, res) => {
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
-    broadcastGameStatus(); // 🃏 ካርቴላ ሲያዝ ለሌሎች ዲቫይሶች ወዲያውኑ ማሳወቅ
+    broadcastGameStatus();
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
@@ -277,9 +273,11 @@ app.post('/api/refund-balance', (req, res) => {
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
-app.post('/api/update-balance', (req, res) => {
+// 🏆 አሸናፊ ሲኖር ቦቱ ለአሸናፊው እና ለአድሚን ማስታወቂያ እንዲልክ የተሻሻለ Endpoint
+app.post('/api/update-balance', async (req, res) => {
     const userId = req.body.userId || req.body.telegram_id || req.body.id;
     const amount = req.body.amount;
+    const cardNumber = req.body.cardNumber;
     const users = loadUsers();
 
     let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
@@ -287,6 +285,20 @@ app.post('/api/update-balance', (req, res) => {
 
     targetUser.balance = (targetUser.balance || 0) + parseFloat(amount);
     saveUsers(users);
+
+    // ለአሸናፊው በቦቱ በኩል መልእክት መላክ
+    bot.telegram.sendMessage(
+        userId, 
+        `🎉 <b>እንኳን ደስ አለዎት!</b> በቢንጎ ጨዋታው ካርድ #${cardNumber || ''} አሸናፊ በመሆን <b>${amount} ETB</b> ተሸልመዋል! 🏆`, 
+        { parse_mode: 'HTML' }
+    ).catch(()=>{});
+
+    // ለአድሚን ማሳወቂያ መላክ
+    bot.telegram.sendMessage(
+        ADMIN_TELEGRAM_ID, 
+        `🏆 <b>ቢንጎ አሸናፊ ተገኘ!</b>\n\n👤 ስም: ${targetUser.firstName || 'ተጠቃሚ'}\n🆔 ID: <code>${userId}</code>\n🃏 ካርድ #: ${cardNumber || 'አልታወቀም'}\n💰 ሽልማት: <b>${amount} ETB</b>`, 
+        { parse_mode: 'HTML' }
+    ).catch(()=>{});
 
     return res.json({ success: true, balance: targetUser.balance });
 });
@@ -399,7 +411,7 @@ const handleStartAndRegister = (ctx) => {
         {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
-                [Markup.button.webApp('🎮 PLAY BINGO NOW', WEB_APP_URL)],
+                [Markup.button.webApp('🎮 PLAY BINGO NOW', `${WEB_APP_URL}?telegram_id=${userId}`)],
                 [Markup.button.callback('🏆 Top Winners', 'show_leaderboard')]
             ])
         }
@@ -430,10 +442,11 @@ bot.action('show_leaderboard', async (ctx) => {
 });
 
 bot.action('back_to_main', (ctx) => {
+    const userId = ctx.from.id.toString();
     return ctx.editMessageText("🎮 <b>YejuBingo</b> ጨዋታውን ለመቀጠል ከታች ያለውን ቁልፍ ይጫኑ፡", {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-            [Markup.button.webApp('🎮 PLAY BINGO NOW', WEB_APP_URL)]
+            [Markup.button.webApp('🎮 PLAY BINGO NOW', `${WEB_APP_URL}?telegram_id=${userId}`)]
         ])
     });
 });
@@ -465,7 +478,7 @@ bot.on('contact', (ctx) => {
             parse_mode: 'HTML',
             ...Markup.removeKeyboard(),
             ...Markup.inlineKeyboard([
-                [Markup.button.webApp('🎮 PLAY BINGO NOW', WEB_APP_URL)]
+                [Markup.button.webApp('🎮 PLAY BINGO NOW', `${WEB_APP_URL}?telegram_id=${userId}`)]
             ])
         }
     );
@@ -730,7 +743,7 @@ bot.on('message', async (ctx, next) => {
             return ctx.reply("✅ ትእዛዝዎ በተሳካ ሁኔታ ተልኳል! በትዕግስት ይጠባበቁ።", {
                 parse_mode: 'HTML',
                 ...Markup.inlineKeyboard([
-                    [Markup.button.webApp('🎮 PLAY BINGO NOW', WEB_APP_URL)]
+                    [Markup.button.webApp('🎮 PLAY BINGO NOW', `${WEB_APP_URL}?telegram_id=${userId}`)]
                 ])
             });
         }
@@ -745,7 +758,7 @@ bot.on('message', async (ctx, next) => {
     return ctx.reply("✅ የክፍያ ማረጋገጫዎ ደርሷል! አድሚኑ በማጣራት አካውንትዎ ላይ የብር መጠን ይጨምራል።", {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-            [Markup.button.webApp('🎮 PLAY BINGO NOW', WEB_APP_URL)]
+            [Markup.button.webApp('🎮 PLAY BINGO NOW', `${WEB_APP_URL}?telegram_id=${userId}`)]
         ])
     });
 });
@@ -753,6 +766,6 @@ bot.on('message', async (ctx, next) => {
 bot.launch();
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { // ⬅️ ከ app.listen ወደ server.listen ተቀይሯል (WebSocket ከ HTTP ጋር እንዲሰራ)
+server.listen(PORT, () => {
     console.log(`Server is running with WebSocket on port ${PORT}`);
 });
