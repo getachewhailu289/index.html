@@ -1,5 +1,7 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
+const http = require('http'); // ⬅️ ለWebSocket HTTP ሰርቨር ለማስነሳት
+const WebSocket = require('ws'); // ⬅️ የWebSocket ፓኬጅ
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
@@ -10,9 +12,11 @@ const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html/'; // የ Git
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
+const server = http.createServer(app); // ⬅️ Expressን ከ HTTP ሰርቨር ጋር ማያያዝ
+const wss = new WebSocket.Server({ server }); // ⬅️ WebSocket ሰርቨር መፍጠር
 
 app.use(express.json());
-app.use(cors()); // ሚኒ አፑ ከሌላ ዶሜን ሆኖ ከሰርቨር ጋር መነጋገር እንዲችል
+app.use(cors()); 
 app.use(express.static('public'));
 
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -51,7 +55,6 @@ function saveHistory(history) {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
-// የክፍሉን (Room) የተሸጠ ካርድ ብዛት እና የተያዙ ካርዶች መቆጣጠሪያ
 function loadRoom() {
     if (!fs.existsSync(ROOM_FILE)) {
         fs.writeFileSync(ROOM_FILE, JSON.stringify({ soldCount: 0, takenCards: [] }));
@@ -100,11 +103,32 @@ let serverRoundStartTime = Date.now();
 let serverCalledBalls = [];
 let soldCardsCount = 0; 
 
-// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን በትክክል ይቆጣጠራል
+// ---------------------------------------------------------
+// WebSocket Broadcast Function (ለሁሉም የተገናኙ ዲቫይሶች መረጃን በአንድ ጊዜ ለማድረስ)
+// ---------------------------------------------------------
+function broadcastGameStatus() {
+    const room = loadRoom();
+    const payload = JSON.stringify({
+        type: 'GAME_STATUS',
+        success: true,
+        roundStartTime: serverRoundStartTime,
+        calledBalls: serverCalledBalls,
+        soldCount: room.soldCount || soldCardsCount,
+        takenCards: room.takenCards || []
+    });
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(payload);
+        }
+    });
+}
+
+// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን ይቆጣጠራል፣ ሲቀየሩም ለሁሉም ዲቫይሶች በWebSocket ይልካል
 setInterval(() => {
     let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
+    let previousBallsLength = serverCalledBalls.length;
     
-    // ከ 40 ሰኮንድ የ ግዢ ሰዓት በኋላ ጨዋታው ይጀምራል (በየ 5 ሰኮንድ 1 ቦል)
     if (elapsed >= 40) {
         let gameElapsed = elapsed - 40;
         let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
@@ -117,7 +141,6 @@ setInterval(() => {
             }
         }
         
-        // 75ቱም ቦሎች አልቀው ከተጠናቀቁ ወይም ራውንዱ ከቀጠለ ከ 415 ሰኮንድ በኋላ ራሱን በራሱ በንጹህ ሁኔታ ያድሳል
         if (serverCalledBalls.length >= 75 || elapsed >= 415) {
             serverRoundStartTime = Date.now();
             serverCalledBalls = [];
@@ -125,10 +148,33 @@ setInterval(() => {
             saveRoom({ soldCount: 0, takenCards: [] });
         }
     }
+
+    // ሁኔታዎች ሲቀየሩ (ቦል ሲወጣ ወይም ጨዋታ ሲታደስ) ለሁሉም ኮኔክሽኖች እናሳውቃለን
+    broadcastGameStatus();
 }, 1000);
 
+// WebSocket Connection Handler
+wss.on('connection', (ws) => {
+    console.log('🔗 አዲስ ዲቫይስ ከሰርቨር ጋር ተገናኝቷል!');
+    
+    // ሲገናኝ ወዲያውኑ የአሁኑን የጨዋታ ሁኔታ እንልክለታለን
+    const room = loadRoom();
+    ws.send(JSON.stringify({
+        type: 'GAME_STATUS',
+        success: true,
+        roundStartTime: serverRoundStartTime,
+        calledBalls: serverCalledBalls,
+        soldCount: room.soldCount || soldCardsCount,
+        takenCards: room.takenCards || []
+    }));
+
+    ws.on('close', () => {
+        console.log('❌ አንድ ዲቫይስ ከሰርቨር ተቋርጧል።');
+    });
+});
+
 // ---------------------------------------------------------
-// REST API Endpoints
+// REST API Endpoints (አሁንም ለባላንስ እና ሌሎች ስራዎች አገልግሎት ላይ ይውላሉ)
 // ---------------------------------------------------------
 app.get('/api/game-status', (req, res) => {
     const room = loadRoom();
@@ -151,6 +197,7 @@ app.post('/api/reset-room', (req, res) => {
     serverCalledBalls = [];
     soldCardsCount = 0;
     saveRoom({ soldCount: 0, takenCards: [] });
+    broadcastGameStatus(); // ለሁሉም አዳዲስ ለውጦችን በሰዓቱ ማሳወቅ
     res.json({ success: true });
 });
 
@@ -201,6 +248,7 @@ app.post('/api/deduct-balance', (req, res) => {
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
+    broadcastGameStatus(); // 🃏 ካርቴላ ሲያዝ ለሌሎች ዲቫይሶች ወዲያውኑ ማሳወቅ
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
@@ -225,6 +273,7 @@ app.post('/api/refund-balance', (req, res) => {
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
+    broadcastGameStatus();
     return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
@@ -290,7 +339,6 @@ app.post('/api/webhook/sms', (req, res) => {
     return res.json({ success: true, message: 'ბალანსი በተሳካ ሁኔታ ተሞልቷል', newBalance: targetUser.balance });
 });
 
-// ሪፈራል ሊደርቦርድ API
 app.get('/api/leaderboard', (req, res) => {
     const users = loadUsers();
     let userList = Array.isArray(users) ? users : Object.keys(users).map(id => ({ telegram_id: id, ...users[id] }));
@@ -535,7 +583,6 @@ bot.command('users', (ctx) => {
     return ctx.reply(message, { parse_mode: 'HTML' });
 });
 
-// አድሚን ባላንስ ማስተካከያ (ሁሉንም መንገድ ይደግፋል: በኮማንድ /addbalance <ID> <amount> ወይም በኢንተራክቲቭ ስልክ ፍለጋ)
 const handleAddBalance = (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("❌ አድሚን ብቻ!");
 
@@ -583,13 +630,11 @@ const handleAddBalance = (ctx) => {
 bot.command('addbalance', handleAddBalance);
 bot.command('add', handleAddBalance);
 
-//  मैसेज እና ስቴፕ መቆጣጠሪያ ሃንድለር
 bot.on('message', async (ctx, next) => {
     if (!ctx.message.text) return next();
     const text = ctx.message.text;
     const adminId = ctx.from.id;
 
-    // የአድሚን ስቴፕ ማስተዳደሪያ (በስልክ ቁጥር ስቴፕ የገባ ከሆነ)
     if (adminId.toString() === ADMIN_TELEGRAM_ID.toString() && adminBalanceStates[adminId]) {
         let state = adminBalanceStates[adminId];
         
@@ -649,7 +694,6 @@ bot.on('message', async (ctx, next) => {
 
     const users = loadUsers();
 
-    // የተጠቃሚ የገንዘብ ማውጣት (Withdrawal) ስቴፖች
     if (pendingWithdrawals[userId]) {
         const state = pendingWithdrawals[userId];
         if (state.step === 'waiting_for_withdraw_phone') {
@@ -692,7 +736,6 @@ bot.on('message', async (ctx, next) => {
         }
     }
 
-    // የክፍያ ማረጋገጫ (Deposit Screenshot/SMS) ለአድሚን ማስተላለፍ
     await bot.telegram.sendMessage(
         ADMIN_TELEGRAM_ID,
         `📥 <b>አዲስ የክፍያ ማረጋገጫ ጥያቄ!</b>\n\n👤 ስም: ${firstName}\n🆔 ID: <code>${userId}</code>\n💬 መልዕክት:\n<code>${text}</code>\n\nገንዘብ ለመጨመር:\n/addbalance ${userId} [መጠን]`,
@@ -710,6 +753,6 @@ bot.on('message', async (ctx, next) => {
 bot.launch();
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+server.listen(PORT, () => { // ⬅️ ከ app.listen ወደ server.listen ተቀይሯል (WebSocket ከ HTTP ጋር እንዲሰራ)
+    console.log(`Server is running with WebSocket on port ${PORT}`);
 });
