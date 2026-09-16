@@ -20,7 +20,6 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            padding: 0;
         }
 
         .container {
@@ -119,11 +118,12 @@
             padding: 12px 8px;
             flex: 1;
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 380px;
         }
 
         .grid-container {
-            max-height: 310px;
-            overflow-y: auto;
+            width: 100%;
             padding: 4px;
         }
 
@@ -592,7 +592,7 @@
         if (userTelegramId) {
             localStorage.setItem('y_saved_telegram_id', userTelegramId);
         } else {
-            userTelegramId = "guest_user";
+            userTelegramId = "test_user_123"; // ባላንስ 0 እንዳይሆን እና ብራውዘር ላይ ሲከፈት እንዳይበላሽ
         }
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
@@ -609,50 +609,69 @@
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
         let roundStartTime = Date.now();
 
-        // 🔗 WebSocket Connection Setup (Real-time update)[cite: 21]
+        // 🔗 Numbers Grid Rendering (ማስተካከያ፡ ወዲያውኑ እንዲቀረጽ ይደረጋል)
+        const gridEl = document.getElementById('numbersGrid');
+        for (let i = 1; i <= 250; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'number-cell';
+            cell.innerText = i;
+            cell.dataset.number = i;
+            if (selectedCards.includes(i)) cell.classList.add('selected');
+            cell.addEventListener('click', () => toggleSelect(i, cell));
+            gridEl.appendChild(cell);
+        }
+
+        // 🔗 WebSocket Connection Setup
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         const wsUrl = SERVER_URL.replace(/^https?:\/\//, protocol);
-        const socket = new WebSocket(wsUrl);
+        let socket;
 
-        socket.onopen = () => {
-            console.log('ከቢንጎ ሰርቨር ጋር ተገናኝቷል!');[cite: 21]
-        };
+        function connectWebSocket() {
+            socket = new WebSocket(wsUrl);
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);[cite: 21]
-            
-            if (data.type === 'GAME_STATUS') {
-                roundStartTime = data.roundStartTime || roundStartTime;
-                calledBalls = data.calledBalls || [];
-                soldCount = data.soldCount || 0;
-                takenCards = data.takenCards || [];
+            socket.onopen = () => {
+                console.log('ከቢንጎ ሰርቨር ጋር ተገናኝቷል!');
+            };
 
-                let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
-
-                if (elapsed >= 40) {
-                    if (!gameStarted) {
-                        gameStarted = true;
-                        switchToGamePage();
-                    }
-                } else {
-                    if (gameStarted) {
-                        gameStarted = false;
-                        const pageBuy = document.getElementById('page-buy');
-                        const pageGame = document.getElementById('page-game');
-                        if (pageGame) pageGame.classList.remove('active');
-                        if (pageBuy) pageBuy.classList.add('active');
-                    }
-                    const timerEl = document.getElementById('timer');
-                    if (timerEl) timerEl.innerText = Math.max(0, 40 - elapsed) + 's';
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'GAME_STATUS') {
+                    roundStartTime = data.roundStartTime || roundStartTime;
+                    calledBalls = data.calledBalls || [];
+                    soldCount = data.soldCount || 0;
+                    takenCards = data.takenCards || [];
+                    updateBoardAndCards();
                 }
+            };
 
-                updateBoardAndCards();
+            socket.onclose = () => {
+                console.log('ኮኔክሽኑ ተቋርጧል፣ በ 3 ሰከንድ ውስጥ እንደገና ይሞከራል...');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        connectWebSocket();
+
+        // ⏱️ Local Timer Loop (ሰዓቱ እንዳይቆም በራሱ በሰከንድ እንዲቀንስ የሚያስችል)
+        setInterval(() => {
+            let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
+            if (elapsed >= 40) {
+                if (!gameStarted) {
+                    gameStarted = true;
+                    switchToGamePage();
+                }
+            } else {
+                if (gameStarted) {
+                    gameStarted = false;
+                    const pageBuy = document.getElementById('page-buy');
+                    const pageGame = document.getElementById('page-game');
+                    if (pageGame) pageGame.classList.remove('active');
+                    if (pageBuy) pageBuy.classList.add('active');
+                }
+                const timerEl = document.getElementById('timer');
+                if (timerEl) timerEl.innerText = Math.max(0, 40 - elapsed) + 's';
             }
-        };
-
-        socket.onclose = () => {
-            console.log('ኮኔክሽኑ ተቋርጧል፣ እንደገና እየተገናኘ ነው...');[cite: 21]
-        };
+        }, 1000);
 
         async function fetchServerBalance() {
             try {
@@ -704,21 +723,9 @@
             localStorage.setItem('y_cardMatrices', JSON.stringify(cardMatrices));
         }
 
-        const gridEl = document.getElementById('numbersGrid');
-        for (let i = 1; i <= 250; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'number-cell';
-            cell.innerText = i;
-            cell.dataset.number = i;
-            if (selectedCards.includes(i)) cell.classList.add('selected');
-            cell.addEventListener('click', () => toggleSelect(i, cell));
-            gridEl.appendChild(cell);
-        }
-
         updateDisplay();
 
         function updateBoardAndCards() {
-            // የቦርዱን ሴሎች እና የተወሰዱ ካርዶች ማደስ
             for (let i = 1; i <= 250; i++) {
                 const targetNumCell = document.querySelector(`[data-number='${i}']`);
                 if (targetNumCell && !selectedCards.includes(i)) {
@@ -730,7 +737,6 @@
                 }
             }
 
-            // የጨዋታ ቦል ማቀቢያ
             for (let i = 1; i <= 75; i++) {
                 const targetCell = document.getElementById(`ball-num-${i}`);
                 if (targetCell) {
@@ -771,12 +777,12 @@
 
         async function updateServerBalanceOnWin(prize, cardNum) {
             try {
-                const users = await fetch(`${SERVER_URL}/api/update-balance`, {
+                const res = await fetch(`${SERVER_URL}/api/update-balance`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userTelegramId, amount: prize })
+                    body: JSON.stringify({ userId: userTelegramId, amount: prize, cardNumber: cardNum })
                 });
-                const data = await users.json();
+                const data = await res.json();
                 if (data.success) {
                     balance = data.balance;
                     updateDisplay();
@@ -1069,7 +1075,7 @@
             }
 
             let uncalledNumbers = [];
-            winningLines.choice = winningLines.forEach(line => {
+            winningLines.forEach(line => {
                 let lineCells = [];
                 if (line.type === 'row') lineCells = grid[line.index];
                 else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
