@@ -590,17 +590,45 @@
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
 
+        let cardPrice = 10.00;
+        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
+        let balance = 0.00;
+
+        let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
+        let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
+        let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
+        let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
+        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+
+        let roundStartTime = localStorage.getItem('y_roundStartTime');
+        if (!roundStartTime) {
+            roundStartTime = Date.now();
+            localStorage.setItem('y_roundStartTime', roundStartTime);
+        } else {
+            roundStartTime = parseInt(roundStartTime);
+        }
+
+        // የተቀናጀው የሰርቨር ማመሳሰያ (Sync Function)
         async function syncGameWithServer() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/game-status`);
                 const data = await response.json();
                 
                 if (data.success) {
+                    // የሰርቨርን ራውንድ ሰዓት ማስተካከል (ጊዜው እንዲመሳሰል)
+                    if (data.roundStartTime && data.roundStartTime !== roundStartTime) {
+                        roundStartTime = data.roundStartTime;
+                        localStorage.setItem('y_roundStartTime', roundStartTime);
+                    }
+
                     soldCount = data.soldCount;
-                    calledBalls = data.calledBalls;
+                    calledBalls = data.calledBalls || calledBalls;
                     
                     const soldEl = document.getElementById('sold-count');
                     if (soldEl) soldEl.innerText = soldCount;
+
+                    const playersVal = document.getElementById('players-val');
+                    if (playersVal) playersVal.innerText = soldCount;
                     
                     updateBoardAndCards();
                 }
@@ -610,10 +638,6 @@
         }
 
         setInterval(syncGameWithServer, 2000);
-
-        const cardPrice = 10.00;
-        let soldCount = localStorage.getItem('y_soldCount') ? parseInt(localStorage.getItem('y_soldCount')) : 0;
-        let balance = 0.00;
 
         async function fetchServerBalance() {
             try {
@@ -629,40 +653,6 @@
         }
 
         fetchServerBalance();
-
-        async function fetchRoomStats() {
-            try {
-                const response = await fetch(`${SERVER_URL}/api/room-stats`);
-                const data = await response.json();
-                if (data.success) {
-                    soldCount = data.soldCount;
-                    
-                    const soldEl = document.getElementById('sold-count');
-                    if (soldEl) soldEl.innerText = soldCount;
-
-                    const playersVal = document.getElementById('players-val');
-                    if (playersVal) playersVal.innerText = soldCount;
-                }
-            } catch (e) {
-                console.log('Room stats ማምጣት አልተቻለም');
-            }
-        }
-
-        setInterval(fetchRoomStats, 2000);
-
-        let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
-        let gameStarted = localStorage.getItem('y_gameStarted') === 'true';
-        let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
-        let calledBalls = localStorage.getItem('y_calledBalls') ? JSON.parse(localStorage.getItem('y_calledBalls')) : [];
-        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
-
-        let roundStartTime = localStorage.getItem('y_roundStartTime');
-        if (!roundStartTime) {
-            roundStartTime = Date.now();
-            localStorage.setItem('y_roundStartTime', roundStartTime);
-        } else {
-            roundStartTime = parseInt(roundStartTime);
-        }
 
         function generateColumnNumber(colIndex) {
             let min, max;
@@ -730,30 +720,6 @@
                     startGlobalLoop();
                 }
             } else {
-                let gameElapsed = elapsedSeconds - 40;
-                if (gameElapsed < 0) gameElapsed = 0;
-                let expectedBallsCount = Math.floor(gameElapsed / 5);
-
-                if (expectedBallsCount > 75) expectedBallsCount = 75;
-
-                if (calledBalls.length < expectedBallsCount && calledBalls.length < 75) {
-                    let allPossibleBalls = Array.from({length: 75}, (_, i) => i + 1);
-                    let missingCount = expectedBallsCount - calledBalls.length;
-                    for (let m = 0; m < missingCount; m++) {
-                        let available = allPossibleBalls.filter(n => !calledBalls.includes(n));
-                        if (available.length === 0) break;
-                        let randIndex = Math.floor(Math.random() * available.length);
-                        calledBalls.push(available[randIndex]);
-                    }
-                    localStorage.setItem('y_calledBalls', JSON.stringify(calledBalls));
-                }
-
-                if (calledBalls.length >= 75) {
-                    showNotification('ጨዋታው አልቋል! ወደ ቀጣዩ ራውንድ በመመለስ ላይ...');
-                    setTimeout(() => resetGameLoopLocally(), 1500);
-                    return;
-                }
-
                 switchToGamePage();
             }
         }
@@ -876,15 +842,11 @@
             
             if (index > -1) {
                 try {
-                    const response = await fetch(`${SERVER_URL}/api/refund-balance`, {
+                    await fetch(`${SERVER_URL}/api/refund-balance`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId: userTelegramId, amount: cardPrice })
                     });
-                    const data = await response.json();
-                    if (data.success) {
-                        balance = data.balance;
-                    }
                 } catch (e) {
                     console.log('የሰርቨር ግንኙነት ተቋርጧል (Refund)');
                 }
