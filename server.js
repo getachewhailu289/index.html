@@ -443,7 +443,7 @@ bot.command('balance', handleBalance);
 
 const handleDeposit = (ctx) => {
     return ctx.reply(
-        "💳 <b>የገንዘብ ተቀማጭ (Deposit) መመሪያ</b>\n\nበቴሌብር (Telebirb) በኩል ገንዘብ ይላኩ፡\n\n📞 <b>ስልክ ቁጥር:</b> 0985141415\n👤 <b>ስም:</b> ጌታቸዉ ሀይሉ\n\nብሩን ከላኩ በኋላ የትራንዛክሽን SMS ወይም ማረጋገጫ እዚሁ ይላኩ።",
+        "💳 <b>የገንዘብ ተቀማጭ (Deposit) መመሪያ</b>\n\nበቴሌብር (Telebirb) በኩል ገንዘብ ይላኩ፡\n\n📞 <b>ስልክ ቁጥር:</b> 0985141415\n👤 <b>ስም:</b> Getachew Hailu\n\nብሩን ከላኩ በኋላ የትራንዛክሽን SMS ወይም ማረጋገጫ እዚሁ ይላኩ።",
         { parse_mode: 'HTML' }
     );
 };
