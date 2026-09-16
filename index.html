@@ -154,6 +154,13 @@
             transform: scale(0.96);
         }
 
+        .number-cell.taken-by-other {
+            background: #cbd5e0;
+            color: #a0aec0;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .slots-section {
             display: flex;
             flex-direction: column;
@@ -598,52 +605,59 @@
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
+        let takenCards = [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
         let roundStartTime = Date.now();
 
-        // 🟢 ከሰርቨር ጋር በየ 1 ሰኮንዱ የሚመሳሰል ዋናው አሰራር (ተስተካክሏል)
-        async function syncGameWithServer() {
-            try {
-                const response = await fetch(`${SERVER_URL}/api/game-status`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    roundStartTime = data.roundStartTime || roundStartTime;
-                    calledBalls = data.calledBalls || [];
-                    soldCount = data.soldCount || 0;
+        // 🔗 WebSocket Connection Setup (Real-time update)[cite: 21]
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const wsUrl = SERVER_URL.replace(/^https?:\/\//, protocol);
+        const socket = new WebSocket(wsUrl);
 
-                    let elapsed = Math.floor((Date.now() - roundStartTime) / 3000);
+        socket.onopen = () => {
+            console.log('ከቢንጎ ሰርቨር ጋር ተገናኝቷል!');[cite: 21]
+        };
 
-                    if (elapsed >= 40) {
-                        if (!gameStarted) {
-                            gameStarted = true;
-                            switchToGamePage();
-                        }
-                    } else {
-                        if (gameStarted) {
-                            gameStarted = false;
-                            const pageBuy = document.getElementById('page-buy');
-                            const pageGame = document.getElementById('page-game');
-                            if (pageGame) pageGame.classList.remove('active');
-                            if (pageBuy) pageBuy.classList.add('active');
-                        }
-                        const timerEl = document.getElementById('timer');
-                        if (timerEl) timerEl.innerText = Math.max(0, 40 - elapsed) + 's';
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);[cite: 21]
+            
+            if (data.type === 'GAME_STATUS') {
+                roundStartTime = data.roundStartTime || roundStartTime;
+                calledBalls = data.calledBalls || [];
+                soldCount = data.soldCount || 0;
+                takenCards = data.takenCards || [];
+
+                let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
+
+                if (elapsed >= 40) {
+                    if (!gameStarted) {
+                        gameStarted = true;
+                        switchToGamePage();
                     }
-
-                    updateBoardAndCards();
+                } else {
+                    if (gameStarted) {
+                        gameStarted = false;
+                        const pageBuy = document.getElementById('page-buy');
+                        const pageGame = document.getElementById('page-game');
+                        if (pageGame) pageGame.classList.remove('active');
+                        if (pageBuy) pageBuy.classList.add('active');
+                    }
+                    const timerEl = document.getElementById('timer');
+                    if (timerEl) timerEl.innerText = Math.max(0, 40 - elapsed) + 's';
                 }
-            } catch (e) {
-                console.log('የሰርቨር መረጃ ማግኘት አልተቻለም');
-            }
-        }
 
-        setInterval(syncGameWithServer, 3000);
+                updateBoardAndCards();
+            }
+        };
+
+        socket.onclose = () => {
+            console.log('ኮኔክሽኑ ተቋርጧል፣ እንደገና እየተገናኘ ነው...');[cite: 21]
+        };
 
         async function fetchServerBalance() {
             try {
-                const users = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
-                const data = await users.json();
+                const res = await fetch(`${SERVER_URL}/api/balance?telegram_id=${userTelegramId}`);
+                const data = await res.json();
                 if (data.success) {
                     balance = data.balance;
                     updateDisplay();
@@ -704,7 +718,19 @@
         updateDisplay();
 
         function updateBoardAndCards() {
-            // የቦርድ ቁጥሮችን ማቀባት
+            // የቦርዱን ሴሎች እና የተወሰዱ ካርዶች ማደስ
+            for (let i = 1; i <= 250; i++) {
+                const targetNumCell = document.querySelector(`[data-number='${i}']`);
+                if (targetNumCell && !selectedCards.includes(i)) {
+                    if (takenCards.includes(i)) {
+                        targetNumCell.classList.add('taken-by-other');
+                    } else {
+                        targetNumCell.classList.remove('taken-by-other');
+                    }
+                }
+            }
+
+            // የጨዋታ ቦል ማቀቢያ
             for (let i = 1; i <= 75; i++) {
                 const targetCell = document.getElementById(`ball-num-${i}`);
                 if (targetCell) {
@@ -716,7 +742,6 @@
                 }
             }
 
-            // የተጠቃሚውን ካርዶች ማመሳሰል
             selectedCards.forEach(cardNum => {
                 const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
                 if (!matrixBox) return;
@@ -1044,7 +1069,7 @@
             }
 
             let uncalledNumbers = [];
-            winningLines.forEach(line => {
+            winningLines.choice = winningLines.forEach(line => {
                 let lineCells = [];
                 if (line.type === 'row') lineCells = grid[line.index];
                 else if (line.type === 'col') lineCells = grid.map(r => r[line.index]);
