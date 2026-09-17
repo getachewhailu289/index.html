@@ -144,7 +144,6 @@ app.post('/api/reset-room', (req, res) => {
     res.json({ success: true });
 });
 
-// 🟢 አሸናፊ ሲኖር ጨዋታው እንዲቆም እና ራውንዱ ራሱን በራሱ እንዲያድስ የሚያደርግ API
 app.post('/api/bingo-win', (req, res) => {
     const { userId, prize, cardNumber } = req.body;
     const users = loadUsers();
@@ -152,11 +151,9 @@ app.post('/api/bingo-win', (req, res) => {
     let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
     if (!targetUser) return res.json({ success: false, message: 'ተጠቃሚው አልተገኘም' });
 
-    // ሽልማቱን ለተጠቃሚው እናስገባለን
     targetUser.balance = (targetUser.balance || 0) + parseFloat(prize);
     saveUsers(users);
 
-    // ጨዋታውን ወዲያውኑ እናድሳለን (Reset) አዲስ ራውን እንጀምራለን
     serverRoundStartTime = Date.now();
     serverCalledBalls = [];
     soldCardsCount = 0;
