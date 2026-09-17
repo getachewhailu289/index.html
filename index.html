@@ -262,7 +262,6 @@
             margin-top: 1px;
         }
 
-        /* 🟢 የ Refresh በተን ስታይል */
         .refresh-btn {
             background: #2b6cb0;
             color: #ffffff;
@@ -615,12 +614,13 @@
         let soldCount = 0;
         let balance = 0.00;
 
-        let selectedCards = [];
+        // 🟢 የተመረጡ ካርዶች ከ localStorage እንዲነበቡ ተደርጓል (አፕ ሲዘጋ/ሲከፈት እንዳይጠፉ)
+        let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
-        let roundStartTime = Date.now();
+        let roundStartTime = localStorage.getItem('y_roundStartTime') ? parseInt(localStorage.getItem('y_roundStartTime')) : Date.now();
         let lastSyncedRoundStart = 0;
 
         let isAppMinimized = false;
@@ -639,20 +639,25 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    roundStartTime = data.roundStartTime || roundStartTime;
+                    const serverRoundStart = data.roundStartTime || roundStartTime;
                     calledBalls = data.calledBalls || [];
                     soldCount = data.soldCount || 0;
 
-                    if (lastSyncedRoundStart !== roundStartTime) {
-                        lastSyncedRoundStart = roundStartTime;
-                        selectedCards = [];
-                        markedCellsState = {};
-                        saveState();
+                    if (lastSyncedRoundStart !== serverRoundStart) {
+                        lastSyncedRoundStart = serverRoundStart;
                         
-                        document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
-                        const userCardsContainer = document.getElementById('activeUserCardsContainer');
-                        if (userCardsContainer) userCardsContainer.innerHTML = '';
-                        updateDisplay();
+                        // አዲስ ዙር ሲጀምር ብቻ ካርዶቹን እናጸዳለን
+                        if (roundStartTime !== serverRoundStart) {
+                            roundStartTime = serverRoundStart;
+                            selectedCards = [];
+                            markedCellsState = {};
+                            saveState();
+                            
+                            document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
+                            const userCardsContainer = document.getElementById('activeUserCardsContainer');
+                            if (userCardsContainer) userCardsContainer.innerHTML = '';
+                            updateDisplay();
+                        }
                     }
 
                     let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
@@ -683,7 +688,6 @@
 
         setInterval(syncGameWithServer, 1000);
 
-        // 🟢 የተጠቃሚው በእጅ (Manual) የሪፍሬሽ በተን ሲጫን የሚሰራ ተግባር
         async function manualRefresh() {
             showNotification('🔄 መረጃዎችን በማመሳሰል ላይ...');
             await syncGameWithServer();
@@ -813,8 +817,11 @@
             setTimeout(() => { toast.classList.remove('show'); }, 2500);
         }
 
+        // 🟢 የተመረጡ ካርዶችን በ localStorage የሚያስቀምጥ ተግባር
         function saveState() {
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
+            localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('y_roundStartTime', roundStartTime);
         }
 
         async function toggleSelect(num, cell) {
@@ -1134,6 +1141,7 @@
                     balance = data.balance;
                     showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተሸልመዋል። ጨዋታው እንደገና ተጀምሯል።`);
                     selectedCards = [];
+                    saveState();
                     updateDisplay();
                 } else {
                     showNotification(data.message || 'ቢንጎ ማረጋገጥ አልተቻለም');
