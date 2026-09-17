@@ -12,7 +12,7 @@ const bot = new Telegraf(BOT_TOKEN);
 const app = express();
 
 app.use(express.json());
-app.use(cors()); // ሚኒ አፑ ከሌላ ዶሜን ሆኖ ከሰርቨር ጋር መነጋገር እንዲችል
+app.use(cors());
 app.use(express.static('public'));
 
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -51,7 +51,6 @@ function saveHistory(history) {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
-// የክፍሉን (Room) የተሸጠ ካርድ ብዛት እና የተያዙ ካርዶች መቆጣጠሪያ
 function loadRoom() {
     if (!fs.existsSync(ROOM_FILE)) {
         fs.writeFileSync(ROOM_FILE, JSON.stringify({ soldCount: 0, takenCards: [] }));
@@ -93,18 +92,13 @@ function addTransaction(userId, type, amount, details = '') {
 const pendingWithdrawals = {};
 const adminBalanceStates = {}; 
 
-// ---------------------------------------------------------
-// የጨዋታው መረጃዎች በሰርቨር ሜሞሪ ውስጥ
-// ---------------------------------------------------------
 let serverRoundStartTime = Date.now();
 let serverCalledBalls = [];
 let soldCardsCount = 0; 
 
-// በየ 1 ሰኮንድ ሰርቨሩ የጊዜ ገደቡንና ቦሎቹን በትክክል ይቆጣጠራል
 setInterval(() => {
     let elapsed = Math.floor((Date.now() - serverRoundStartTime) / 1000);
     
-    // ከ 40 ሰኮንድ የ ግዢ ሰዓት በኋላ ጨዋታው ይጀምራል (በየ 5 ሰኮንድ 1 ቦል)
     if (elapsed >= 40) {
         let gameElapsed = elapsed - 40;
         let targetBallsCount = Math.min(75, Math.floor(gameElapsed / 5) + 1);
@@ -117,7 +111,6 @@ setInterval(() => {
             }
         }
         
-        // 75ቱም ቦሎች አልቀው ከተጠናቀቁ ወይም ራውንዱ ከቀጠለ ከ 415 ሰኮንድ በኋላ ራሱን በራሱ በንጹህ ሁኔታ ያድሳል
         if (serverCalledBalls.length >= 75 || elapsed >= 415) {
             serverRoundStartTime = Date.now();
             serverCalledBalls = [];
@@ -127,9 +120,6 @@ setInterval(() => {
     }
 }, 1000);
 
-// ---------------------------------------------------------
-// REST API Endpoints
-// ---------------------------------------------------------
 app.get('/api/game-status', (req, res) => {
     const room = loadRoom();
     res.json({
@@ -154,20 +144,33 @@ app.post('/api/reset-room', (req, res) => {
     res.json({ success: true });
 });
 
+// 🟢 አሸናፊ ሲኖር ጨዋታው እንዲቆም እና ራውንዱ ራሱን በራሱ እንዲያድስ የሚያደርግ API
+app.post('/api/bingo-win', (req, res) => {
+    const { userId, prize, cardNumber } = req.body;
+    const users = loadUsers();
+
+    let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
+    if (!targetUser) return res.json({ success: false, message: 'ተጠቃሚው አልተገኘም' });
+
+    // ሽልማቱን ለተጠቃሚው እናስገባለን
+    targetUser.balance = (targetUser.balance || 0) + parseFloat(prize);
+    saveUsers(users);
+
+    // ጨዋታውን ወዲያውኑ እናድሳለን (Reset) አዲስ ራውን እንጀምራለን
+    serverRoundStartTime = Date.now();
+    serverCalledBalls = [];
+    soldCardsCount = 0;
+    saveRoom({ soldCount: 0, takenCards: [] });
+
+    return res.json({ success: true, balance: targetUser.balance });
+});
+
 app.get('/api/balance', (req, res) => {
     const telegramId = req.query.telegram_id || req.query.user_id || req.query.id;
     if (!telegramId) return res.status(400).json({ success: false, error: 'Telegram ID is required' });
     
     const users = loadUsers();
     let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(telegramId) || String(u.id) === String(telegramId)) : users[telegramId];
-
-    return res.json({ success: true, balance: targetUser ? (targetUser.balance || 0) : 0 });
-});
-
-app.get('/api/balance/:userId', (req, res) => {
-    const userId = req.params.userId;
-    const users = loadUsers();
-    let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
 
     return res.json({ success: true, balance: targetUser ? (targetUser.balance || 0) : 0 });
 });
@@ -242,7 +245,6 @@ app.post('/api/update-balance', (req, res) => {
     return res.json({ success: true, balance: targetUser.balance });
 });
 
-// አውቶማቲክ የ SMS / Notification Webhook Endpoint
 app.post('/api/webhook/sms', (req, res) => {
     const { phone, amount, message } = req.body;
 
@@ -290,7 +292,6 @@ app.post('/api/webhook/sms', (req, res) => {
     return res.json({ success: true, message: 'ბალანსი በተሳካ ሁኔታ ተሞልቷል', newBalance: targetUser.balance });
 });
 
-// ሪፈራል ሊደርቦርድ API
 app.get('/api/leaderboard', (req, res) => {
     const users = loadUsers();
     let userList = Array.isArray(users) ? users : Object.keys(users).map(id => ({ telegram_id: id, ...users[id] }));
@@ -299,9 +300,6 @@ app.get('/api/leaderboard', (req, res) => {
     res.json({ success: true, topUsers: userList.slice(0, 10) });
 });
 
-// ---------------------------------------------------------
-// Telegram Bot Handlers & Commands
-// ---------------------------------------------------------
 const handleStartAndRegister = (ctx) => {
     const userId = ctx.from.id.toString();
     const users = loadUsers();
@@ -535,7 +533,6 @@ bot.command('users', (ctx) => {
     return ctx.reply(message, { parse_mode: 'HTML' });
 });
 
-// አድሚን ባላንስ ማስተካከያ (ሁሉንም መንገድ ይደግፋል: በኮማንድ /addbalance <ID> <amount> ወይም በኢንተራክቲቭ ስልክ ፍለጋ)
 const handleAddBalance = (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_TELEGRAM_ID.toString()) return ctx.reply("❌ አድሚን ብቻ!");
 
@@ -583,13 +580,11 @@ const handleAddBalance = (ctx) => {
 bot.command('addbalance', handleAddBalance);
 bot.command('add', handleAddBalance);
 
-//  मैसेज እና ስቴፕ መቆጣጠሪያ ሃንድለር
 bot.on('message', async (ctx, next) => {
     if (!ctx.message.text) return next();
     const text = ctx.message.text;
     const adminId = ctx.from.id;
 
-    // የአድሚን ስቴፕ ማስተዳደሪያ (በስልክ ቁጥር ስቴፕ የገባ ከሆነ)
     if (adminId.toString() === ADMIN_TELEGRAM_ID.toString() && adminBalanceStates[adminId]) {
         let state = adminBalanceStates[adminId];
         
@@ -649,7 +644,6 @@ bot.on('message', async (ctx, next) => {
 
     const users = loadUsers();
 
-    // የተጠቃሚ የገንዘብ ማውጣት (Withdrawal) ስቴፖች
     if (pendingWithdrawals[userId]) {
         const state = pendingWithdrawals[userId];
         if (state.step === 'waiting_for_withdraw_phone') {
@@ -692,7 +686,6 @@ bot.on('message', async (ctx, next) => {
         }
     }
 
-    // የክፍያ ማረጋገጫ (Deposit Screenshot/SMS) ለአድሚን ማስተላለፍ
     await bot.telegram.sendMessage(
         ADMIN_TELEGRAM_ID,
         `📥 <b>አዲስ የክፍያ ማረጋገጫ ጥያቄ!</b>\n\n👤 ስም: ${firstName}\n🆔 ID: <code>${userId}</code>\n💬 መልዕክት:\n<code>${text}</code>\n\nገንዘብ ለመጨመር:\n/addbalance ${userId} [መጠን]`,
