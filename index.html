@@ -244,20 +244,39 @@
 
         .game-header-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            padding: 8px 16px;
+            grid-template-columns: 1.2fr 1fr 1fr 1fr;
+            padding: 8px 12px;
             background: #171b22;
             text-align: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             color: #94a3b8;
+            align-items: center;
+            gap: 4px;
         }
 
         .game-header-stats span {
             display: block;
-            font-size: 13px;
+            font-size: 11px;
             color: #ffffff;
             margin-top: 1px;
+        }
+
+        /* 🟢 የ Refresh በተን ስታይል */
+        .refresh-btn {
+            background: #2b6cb0;
+            color: #ffffff;
+            border: none;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .refresh-btn:active {
+            background: #2c5282;
+            transform: scale(0.95);
         }
 
         .game-body {
@@ -540,6 +559,7 @@
                 <div>ደራሽ <span id="derash-val">0 ETB</span></div>
                 <div>BALLS <span id="balls-val">0/75</span></div>
                 <div>PLAYERS <span id="players-val">0</span></div>
+                <div><button class="refresh-btn" onclick="manualRefresh()">🔄 ሪፍሬሽ</button></div>
             </div>
 
             <div class="game-body">
@@ -603,12 +623,11 @@
         let roundStartTime = Date.now();
         let lastSyncedRoundStart = 0;
 
-        // 🟢 አፑ ሚኒማይዝ (Minimize) መሆኑን ለመቆጣጠር የሚያስችል ክትትል
         let isAppMinimized = false;
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
                 isAppMinimized = true;
-                autoMarkCardsForBackground(); // ሚኒማይዝ ሲደረግ በራሱ ይሞላል
+                autoMarkCardsForBackground();
             } else {
                 isAppMinimized = false;
             }
@@ -663,6 +682,14 @@
         }
 
         setInterval(syncGameWithServer, 1000);
+
+        // 🟢 የተጠቃሚው በእጅ (Manual) የሪፍሬሽ በተን ሲጫን የሚሰራ ተግባር
+        async function manualRefresh() {
+            showNotification('🔄 መረጃዎችን በማመሳሰል ላይ...');
+            await syncGameWithServer();
+            await fetchServerBalance();
+            showNotification('✅ ሪፍሬሽ ተደርጓል!');
+        }
 
         async function fetchServerBalance() {
             try {
@@ -727,7 +754,6 @@
 
         updateDisplay();
 
-        // 🟢 አፑ ሚኒማይዝ ሲደረግ ብቻ በራሱ እንዲቀባ የሚያደርግ ፕርግራም
         function autoMarkCardsForBackground() {
             if (!gameStarted) return;
             selectedCards.forEach(cardNum => {
@@ -760,7 +786,6 @@
                 }
             }
 
-            // 🟢 አፑ ሚኒማይዝ ከተደረገ ብቻ አውቶማቲክ ማርክ እንዲደረግ ይደረጋል
             if (isAppMinimized) {
                 autoMarkCardsForBackground();
             }
@@ -983,7 +1008,6 @@
                                 let val = matrix[r][c];
                                 let cellKey = `${cardNum}_${r}_${c}`;
                                 
-                                // አስቀድሞ በማርክ ስቴት ውስጥ ያለ ወይም የተመረጠ መሆኑን እናረጋግጣለን
                                 let isMarked = val === '★' || markedCellsState[cellKey];
                                 let markedClass = isMarked ? 'marked' : '';
                                 
@@ -1019,7 +1043,6 @@
             });
         }
 
-        // 🟢 አፑ ክፍት ሲሆን ተጠቃሚው በእጁ ነክቶ ቁጥሮችን መምረጥ/ማጥቆር እንዲችል
         function toggleMarkCell(cell, cardNum, r, c) {
             if (!gameStarted) return;
             let val = cell.dataset.val;
@@ -1027,7 +1050,6 @@
 
             if (val === '★') return;
 
-            // የተጠራ ቁጥር መሆኑን ማረጋገጥ ይቻላል (ወይም ተጫዋቹ በቀጥታ እንዲነካው መተው)
             if (!calledBalls.includes(parseInt(val))) {
                 showNotification(`⚠️ ቁጥር ${val} ገና አልተጠራም!`);
                 return;
