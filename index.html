@@ -599,9 +599,20 @@
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
-        let markedCellsState = {};
+        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
         let roundStartTime = Date.now();
         let lastSyncedRoundStart = 0;
+
+        // 🟢 አፑ ሚኒማይዝ (Minimize) መሆኑን ለመቆጣጠር የሚያስችል ክትትል
+        let isAppMinimized = false;
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                isAppMinimized = true;
+                autoMarkCardsForBackground(); // ሚኒማይዝ ሲደረግ በራሱ ይሞላል
+            } else {
+                isAppMinimized = false;
+            }
+        });
 
         async function syncGameWithServer() {
             try {
@@ -613,14 +624,12 @@
                     calledBalls = data.calledBalls || [];
                     soldCount = data.soldCount || 0;
 
-                    // ራውንዱ በአዲስ ከቀየረ የተጠቃሚውን የተመረጡ ካርዶች እና ማርኮች እናጸዳለን
                     if (lastSyncedRoundStart !== roundStartTime) {
                         lastSyncedRoundStart = roundStartTime;
                         selectedCards = [];
                         markedCellsState = {};
                         saveState();
                         
-                        // የሲሌክሽን ክላሶችን ከግሪድ ላይ እናነሳለን
                         document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
                         const userCardsContainer = document.getElementById('activeUserCardsContainer');
                         if (userCardsContainer) userCardsContainer.innerHTML = '';
@@ -718,6 +727,27 @@
 
         updateDisplay();
 
+        // 🟢 አፑ ሚኒማይዝ ሲደረግ ብቻ በራሱ እንዲቀባ የሚያደርግ ፕርግራም
+        function autoMarkCardsForBackground() {
+            if (!gameStarted) return;
+            selectedCards.forEach(cardNum => {
+                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
+                if (!matrixBox) return;
+                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
+                    let val = cell.dataset.val;
+                    let r = cell.dataset.row;
+                    let c = cell.dataset.col;
+                    let cellKey = `${cardNum}_${r}_${c}`;
+
+                    if (val === '★' || calledBalls.includes(parseInt(val))) {
+                        cell.classList.add('marked');
+                        markedCellsState[cellKey] = true;
+                    }
+                });
+            });
+            saveState();
+        }
+
         function updateBoardAndCards() {
             for (let i = 1; i <= 75; i++) {
                 const targetCell = document.getElementById(`ball-num-${i}`);
@@ -730,24 +760,10 @@
                 }
             }
 
-            // 🟢 በሰርቨር የተጠሩትን ቦሎች ብቻ በመመርኮዝ ካርዱ ላይ እንዲቀቡ ይደረጋል (አውቶማቲክ ማርክ)
-            selectedCards.forEach(cardNum => {
-                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
-                if (!matrixBox) return;
-                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
-                    let val = cell.dataset.val;
-                    let r = cell.dataset.row;
-                    let c = cell.dataset.col;
-                    let cellKey = `${cardNum}_${r}_${c}`;
-
-                    if (val === '★') {
-                        cell.classList.add('marked');
-                    } else if (calledBalls.includes(parseInt(val))) {
-                        cell.classList.add('marked');
-                        markedCellsState[cellKey] = true;
-                    }
-                });
-            });
+            // 🟢 አፑ ሚኒማይዝ ከተደረገ ብቻ አውቶማቲክ ማርክ እንዲደረግ ይደረጋል
+            if (isAppMinimized) {
+                autoMarkCardsForBackground();
+            }
 
             updateRecentTags();
 
@@ -773,7 +789,6 @@
         }
 
         function saveState() {
-            // selectedCards ን በ localStorage አናስቀምጥም፣ ጨዋታው ሲያልቅ አብሮ እንዲጠራረግ ይደረጋል
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
@@ -967,13 +982,15 @@
                             for (let c = 0; c < 5; c++) {
                                 let val = matrix[r][c];
                                 let cellKey = `${cardNum}_${r}_${c}`;
-                                let isCalledOrFree = val === '★' || calledBalls.includes(parseInt(val));
-                                let markedClass = isCalledOrFree ? 'marked' : '';
+                                
+                                // አስቀድሞ በማርክ ስቴት ውስጥ ያለ ወይም የተመረጠ መሆኑን እናረጋግጣለን
+                                let isMarked = val === '★' || markedCellsState[cellKey];
+                                let markedClass = isMarked ? 'marked' : '';
                                 
                                 if (val === '★') {
-                                    cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}">★</div>`;
+                                    cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">★</div>`;
                                 } else {
-                                    cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}">${val}</div>`;
+                                    cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">${val}</div>`;
                                 }
                             }
                         }
@@ -1002,9 +1019,28 @@
             });
         }
 
-        // ተጠቃሚው በእጅ መቀባት አያስፈልገውም፣ የተጠሩት ቦሎች በራሳቸው ይሞላሉ።
+        // 🟢 አፑ ክፍት ሲሆን ተጠቃሚው በእጁ ነክቶ ቁጥሮችን መምረጥ/ማጥቆር እንዲችል
         function toggleMarkCell(cell, cardNum, r, c) {
-            // ተሰርዟል ምክንያቱም ማርኪንግ የሚደረገው በተጠሩት ቦሎች መሰረት በራስ-ሰር ነው
+            if (!gameStarted) return;
+            let val = cell.dataset.val;
+            let cellKey = `${cardNum}_${r}_${c}`;
+
+            if (val === '★') return;
+
+            // የተጠራ ቁጥር መሆኑን ማረጋገጥ ይቻላል (ወይም ተጫዋቹ በቀጥታ እንዲነካው መተው)
+            if (!calledBalls.includes(parseInt(val))) {
+                showNotification(`⚠️ ቁጥር ${val} ገና አልተጠራም!`);
+                return;
+            }
+
+            if (cell.classList.contains('marked')) {
+                cell.classList.remove('marked');
+                delete markedCellsState[cellKey];
+            } else {
+                cell.classList.add('marked');
+                markedCellsState[cellKey] = true;
+            }
+            saveState();
         }
 
         async function checkBingo(cardNum) {
@@ -1064,7 +1100,6 @@
                 return;
             }
 
-            // 🟢 ሰርቨር ላይ አሸናፊ ሆኖ ጨዋታው እንዲዘጋ ጥያቄ እንልካለን
             try {
                 let prize = soldCount * 8;
                 const response = await fetch(`${SERVER_URL}/api/bingo-win`, {
