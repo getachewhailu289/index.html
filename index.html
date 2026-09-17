@@ -585,7 +585,8 @@
         if (userTelegramId) {
             localStorage.setItem('y_saved_telegram_id', userTelegramId);
         } else {
-            userTelegramId = "guest_user";
+            userTelegramId = "guest_user_" + Math.floor(Math.random() * 100000);
+            localStorage.setItem('y_saved_telegram_id', userTelegramId);
         }
 
         const SERVER_URL = 'https://index-html-2-8yfn.onrender.com';
@@ -594,14 +595,14 @@
         let soldCount = 0;
         let balance = 0.00;
 
-        let selectedCards = localStorage.getItem(`y_selectedCards_${userTelegramId}`) ? JSON.parse(localStorage.getItem(`y_selectedCards_${userTelegramId}`)) : [];
+        let selectedCards = [];
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
-        let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+        let markedCellsState = {};
         let roundStartTime = Date.now();
+        let lastSyncedRoundStart = 0;
 
-        // 🟢 ከሰርቨር ጋር በየ 1 ሰኮንዱ የሚመሳሰል ዋናው አሰራር (ተስተካክሏል)
         async function syncGameWithServer() {
             try {
                 const response = await fetch(`${SERVER_URL}/api/game-status`);
@@ -611,6 +612,20 @@
                     roundStartTime = data.roundStartTime || roundStartTime;
                     calledBalls = data.calledBalls || [];
                     soldCount = data.soldCount || 0;
+
+                    // ራውንዱ በአዲስ ከቀየረ የተጠቃሚውን የተመረጡ ካርዶች እና ማርኮች እናጸዳለን
+                    if (lastSyncedRoundStart !== roundStartTime) {
+                        lastSyncedRoundStart = roundStartTime;
+                        selectedCards = [];
+                        markedCellsState = {};
+                        saveState();
+                        
+                        // የሲሌክሽን ክላሶችን ከግሪድ ላይ እናነሳለን
+                        document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
+                        const userCardsContainer = document.getElementById('activeUserCardsContainer');
+                        if (userCardsContainer) userCardsContainer.innerHTML = '';
+                        updateDisplay();
+                    }
 
                     let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
 
@@ -704,7 +719,6 @@
         updateDisplay();
 
         function updateBoardAndCards() {
-            // የቦርድ ቁጥሮችን ማቀባት
             for (let i = 1; i <= 75; i++) {
                 const targetCell = document.getElementById(`ball-num-${i}`);
                 if (targetCell) {
@@ -716,15 +730,21 @@
                 }
             }
 
-            // የተጠቃሚውን ካርዶች ማመሳሰል
+            // 🟢 በሰርቨር የተጠሩትን ቦሎች ብቻ በመመርኮዝ ካርዱ ላይ እንዲቀቡ ይደረጋል (አውቶማቲክ ማርክ)
             selectedCards.forEach(cardNum => {
                 const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
                 if (!matrixBox) return;
                 matrixBox.querySelectorAll('.um-cell').forEach(cell => {
                     let val = cell.dataset.val;
-                    if (val !== '★' && calledBalls.includes(parseInt(val))) {
+                    let r = cell.dataset.row;
+                    let c = cell.dataset.col;
+                    let cellKey = `${cardNum}_${r}_${c}`;
+
+                    if (val === '★') {
                         cell.classList.add('marked');
-                        markedCellsState[`${cardNum}_${cell.dataset.row}_${cell.dataset.col}`] = true;
+                    } else if (calledBalls.includes(parseInt(val))) {
+                        cell.classList.add('marked');
+                        markedCellsState[cellKey] = true;
                     }
                 });
             });
@@ -744,25 +764,6 @@
             if (derashVal) derashVal.innerText = (soldCount * 8) + ' ETB';
         }
 
-        async function updateServerBalanceOnWin(prize, cardNum) {
-            try {
-                const users = await fetch(`${SERVER_URL}/api/update-balance`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userTelegramId, amount: prize })
-                });
-                const data = await users.json();
-                if (data.success) {
-                    balance = data.balance;
-                    updateDisplay();
-                }
-            } catch (e) {
-                console.log('ሽልማት ሰርቨር ላይ መመዝገብ አልቻለም');
-            }
-            showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተጨምሯል።`);
-            saveState();
-        }
-
         function showNotification(message) {
             const toast = document.getElementById('custom-toast');
             if (!toast) return;
@@ -772,7 +773,7 @@
         }
 
         function saveState() {
-            localStorage.setItem(`y_selectedCards_${userTelegramId}`, JSON.stringify(selectedCards));
+            // selectedCards ን በ localStorage አናስቀምጥም፣ ጨዋታው ሲያልቅ አብሮ እንዲጠራረግ ይደረጋል
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
         }
 
@@ -941,7 +942,7 @@
             }
 
             const userCardsContainer = document.getElementById('activeUserCardsContainer');
-            if (userCardsContainer && userCardsContainer.children.length === 0) {
+            if (userCardsContainer) {
                 userCardsContainer.innerHTML = '';
 
                 if (selectedCards.length === 0) {
@@ -966,13 +967,13 @@
                             for (let c = 0; c < 5; c++) {
                                 let val = matrix[r][c];
                                 let cellKey = `${cardNum}_${r}_${c}`;
-                                let isMarked = markedCellsState[cellKey] === true;
+                                let isCalledOrFree = val === '★' || calledBalls.includes(parseInt(val));
+                                let markedClass = isCalledOrFree ? 'marked' : '';
                                 
                                 if (val === '★') {
                                     cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}">★</div>`;
                                 } else {
-                                    let markedClass = isMarked ? 'marked' : '';
-                                    cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">${val}</div>`;
+                                    cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}">${val}</div>`;
                                 }
                             }
                         }
@@ -1001,14 +1002,12 @@
             });
         }
 
+        // ተጠቃሚው በእጅ መቀባት አያስፈልገውም፣ የተጠሩት ቦሎች በራሳቸው ይሞላሉ።
         function toggleMarkCell(cell, cardNum, r, c) {
-            cell.classList.toggle('marked');
-            let isMarked = cell.classList.contains('marked');
-            markedCellsState[`${cardNum}_${r}_${c}`] = isMarked;
-            saveState();
+            // ተሰርዟል ምክንያቱም ማርኪንግ የሚደረገው በተጠሩት ቦሎች መሰረት በራስ-ሰር ነው
         }
 
-        function checkBingo(cardNum) {
+        async function checkBingo(cardNum) {
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
             const cells = matrixBox.querySelectorAll('.um-cell');
@@ -1065,8 +1064,26 @@
                 return;
             }
 
-            let prize = soldCount * 8;
-            updateServerBalanceOnWin(prize, cardNum);
+            // 🟢 ሰርቨር ላይ አሸናፊ ሆኖ ጨዋታው እንዲዘጋ ጥያቄ እንልካለን
+            try {
+                let prize = soldCount * 8;
+                const response = await fetch(`${SERVER_URL}/api/bingo-win`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userTelegramId, prize: prize, cardNumber: cardNum })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    balance = data.balance;
+                    showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተሸልመዋል። ጨዋታው እንደገና ተጀምሯል።`);
+                    selectedCards = [];
+                    updateDisplay();
+                } else {
+                    showNotification(data.message || 'ቢንጎ ማረጋገጥ አልተቻለም');
+                }
+            } catch (e) {
+                showNotification('የሰርቨር ግንኙነት ተቋርጧል');
+            }
         }
     </script>
 </body>
