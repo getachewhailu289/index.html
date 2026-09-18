@@ -179,8 +179,11 @@ app.post('/api/deduct-balance', (req, res) => {
     const users = loadUsers();
     let room = loadRoom();
 
-    if (cardNumber && room.takenCards && room.takenCards.includes(cardNumber)) {
-        return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ ተመርጧል/ተሸጧል!' });
+    if (!room.takenCards) room.takenCards = [];
+
+    // ካርቴላው አስቀድሞ በሌላ ተጫዋች የተያዘ መሆኑን በሰርቨር በኩል ማረጋገጥ
+    if (cardNumber && room.takenCards.includes(Number(cardNumber))) {
+        return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተመርጧል!' });
     }
 
     let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
@@ -193,15 +196,16 @@ app.post('/api/deduct-balance', (req, res) => {
     saveUsers(users);
 
     if (cardNumber) {
-        if (!room.takenCards) room.takenCards = [];
-        room.takenCards.push(cardNumber);
+        if (!room.takenCards.includes(Number(cardNumber))) {
+            room.takenCards.push(Number(cardNumber));
+        }
     }
 
     room.soldCount = (room.soldCount || 0) + 1;
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
-    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount, takenCards: room.takenCards });
 });
 
 app.post('/api/refund-balance', (req, res) => {
@@ -218,14 +222,14 @@ app.post('/api/refund-balance', (req, res) => {
     saveUsers(users);
 
     if (cardNumber && room.takenCards) {
-        room.takenCards = room.takenCards.filter(c => String(c) !== String(cardNumber));
+        room.takenCards = room.takenCards.filter(c => Number(c) !== Number(cardNumber));
     }
 
     room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
-    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount, takenCards: room.takenCards });
 });
 
 app.post('/api/update-balance', (req, res) => {
