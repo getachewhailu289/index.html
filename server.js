@@ -6,16 +6,14 @@ const cors = require('cors');
 
 const BOT_TOKEN = '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY'; // የቦት ቶከንዎ
 const ADMIN_TELEGRAM_ID = 2119423483; // የአድሚን ID
-// በኮምፒውተርዎ ላይ ሎካል ሆነው ለመክፈት (አብዛኛውን ጊዜ index.html ፋይልን ከ public ፎልደር ውስጥ እንዲያነብ ይደረጋል)
-const WEB_APP_URL = 'https://pang-coffee-buddy.ngrok-free.dev/index.html';
+const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html/'; // የ GitHub Pages ሊንክዎ
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
 
 app.use(express.json());
 app.use(cors());
-// ይህ ከላይ ያለው ኮድ index.html እና ሌሎች ፋይሎች ያሉበትን ፎልደር ከሰርቨር ጋር ያገናኘዋል
-app.use(express.static(path.join(__dirname))); 
+app.use(express.static('public'));
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const HISTORY_FILE = path.join(__dirname, 'history.json');
@@ -181,10 +179,8 @@ app.post('/api/deduct-balance', (req, res) => {
     const users = loadUsers();
     let room = loadRoom();
 
-    if (!room.takenCards) room.takenCards = [];
-
-    if (cardNumber && room.takenCards.includes(Number(cardNumber))) {
-        return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተመርጧል!' });
+    if (cardNumber && room.takenCards && room.takenCards.includes(cardNumber)) {
+        return res.json({ success: false, message: 'ይህ ካርቴላ አስቀድሞ ተመርጧል/ተሸጧል!' });
     }
 
     let targetUser = Array.isArray(users) ? users.find(u => String(u.telegram_id) === String(userId) || String(u.id) === String(userId)) : users[userId];
@@ -197,16 +193,15 @@ app.post('/api/deduct-balance', (req, res) => {
     saveUsers(users);
 
     if (cardNumber) {
-        if (!room.takenCards.includes(Number(cardNumber))) {
-            room.takenCards.push(Number(cardNumber));
-        }
+        if (!room.takenCards) room.takenCards = [];
+        room.takenCards.push(cardNumber);
     }
 
     room.soldCount = (room.soldCount || 0) + 1;
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
-    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount, takenCards: room.takenCards });
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
 app.post('/api/refund-balance', (req, res) => {
@@ -223,14 +218,14 @@ app.post('/api/refund-balance', (req, res) => {
     saveUsers(users);
 
     if (cardNumber && room.takenCards) {
-        room.takenCards = room.takenCards.filter(c => Number(c) !== Number(cardNumber));
+        room.takenCards = room.takenCards.filter(c => String(c) !== String(cardNumber));
     }
 
     room.soldCount = Math.max(0, (room.soldCount || 0) - 1);
     soldCardsCount = room.soldCount;
     saveRoom(room);
 
-    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount, takenCards: room.takenCards });
+    return res.json({ success: true, balance: targetUser.balance, soldCount: room.soldCount });
 });
 
 app.post('/api/update-balance', (req, res) => {
