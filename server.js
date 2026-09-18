@@ -96,19 +96,39 @@ app.get('/api/balance', (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 2. ጨዋታ ሁኔታ (Game Status API - ሎካል)
+// 2. ጨዋታ ሁኔታ (Game Status API - የተስተካከለ)
+// ---------------------------------------------------------
+// ---------------------------------------------------------
+// 2. ጨዋታ ሁኔታ (Game Status API - በየ 4 ሰከንድ ቁጥር የሚጠራ)
 // ---------------------------------------------------------
 app.get('/api/game-status', (req, res) => {
-    // በሎካል ሰርቨር ሰዓት መሰረት የዙር መረጃ ማቀናበሪያ
-    const roundDuration = 40;
+    const roundDuration = 40; // 40 ሰከንድ የግዢ ሰዓት
     const now = Math.floor(Date.now() / 1000);
     const roundStartTime = (Math.floor(now / roundDuration) * roundDuration) * 1000;
     
-    // በዘፈቀደ የሚወጡ የቢንጎ ኳሶች ከ 1 እስከ 75
-    let calledBalls = [];
     let elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
-    for (let i = 1; i <= Math.min(75, Math.floor(elapsed / 2)); i++) {
-        calledBalls.push(i);
+    let calledBalls = [];
+
+    // ጨዋታው ከተጀመረ (ከ 40 ሰከንድ በኋላ) ቁጥሮች በየ 4 ሰከንድ በዘፈቀደ (Random) እንዲወጡ ይደረጋል
+    if (elapsed > 40) {
+        let gameSeconds = elapsed - 40;
+        // በየ 4 ሰከንድ አንድ ቁጥር እንዲጨምር በ 4 ተካፍሏል
+        let ballsCount = Math.min(75, Math.max(1, Math.floor(gameSeconds / 4)));
+
+        let pool = Array.from({length: 75}, (_, i) => i + 1);
+        let currentSeed = roundStartTime;
+        
+        let seededRandom = (seed) => {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        };
+
+        for (let i = pool.length - 1; i > 0; i--) {
+            let j = Math.floor(seededRandom(currentSeed++) * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+
+        calledBalls = pool.slice(0, ballsCount);
     }
 
     return res.json({
