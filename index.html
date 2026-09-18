@@ -154,7 +154,6 @@
             transform: scale(0.96);
         }
 
-        /* በሌላ ተጫዋች የተያዘ ካርቴላ (Inactive / Disabled) ከለር */
         .number-cell.taken {
             background: #cbd5e0 !important;
             color: #a0aec0 !important;
@@ -636,7 +635,7 @@
         let balance = 0.00;
 
         let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
-        let takenCards = []; // በሌሎች ተጫዋቾች የተያዙ ካርዶች ዝርዝር
+        let takenCards = []; 
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
@@ -1065,7 +1064,7 @@
             });
         }
 
-        // እዚህ ጋር የተጠራው ቁጥር በአንዱ ስሎት ላይ ተጫዋቹ ሲነካው፣ በሁለተኛው ስሎት ላይ ካለ በራሱ (Auto-mark) እንዲደረግ የሚሰራው ዋናው ሎጂክ ተስተካክሏል
+        // እዚህ ጋር ተጫዋቹ በአንዱ ስሎት ሲነካ በሌላኛው ስሎት ተመሳሳይ ቁጥር ካለ በራሱ አውቶማቲክ ቲክ (ቀለም) እንዲያዝ ተደርጓል
         function toggleMarkCell(cell, cardNum, r, c) {
             if (!gameStarted || bannedCards.includes(cardNum)) return;
             let val = cell.dataset.val;
@@ -1079,7 +1078,6 @@
                 return;
             }
 
-            // የማርክ ሁኔታን መቀየር (የተመረጠውን ስሎት ቲክ ማድረግ ወይም ማጥፋት)
             let willBeMarked = !cell.classList.contains('marked');
 
             if (willBeMarked) {
@@ -1090,7 +1088,7 @@
                 delete markedCellsState[cellKey];
             }
 
-            // ተጫዋቹ 2 ካርቴላዎች (Slot 1 እና Slot 2) ይዞ ከሆነ፣ በሌላኛው ስሎት ላይ ይህ ቁጥር ይኑር እንደሆነ ቼክ በማድረግ በራሱ ማርክ (Auto-mark) እንዲያደርግለት
+            // ተጫዋቹ ከሁለት በላይ (ሁለት) ካርዶች/ስሎቶች ካሉት እና ቁጥሩ በሁለተኛው ስሎት ላይ የሚገኝ ከሆነ አውቶማቲክ ምልክት ይሰጠዋል
             if (willBeMarked && selectedCards.length > 1) {
                 selectedCards.forEach(otherCardNum => {
                     if (otherCardNum !== cardNum) {
