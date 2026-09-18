@@ -534,7 +534,7 @@
                         <div class="slot-text" id="slot1-text">SLOT 1 EMPTY</div>
                     </div>
                     <div class="slot-box" id="slot2" onclick="clearSlot(2)">
-                        <div class="slot-icon" id="slot2-icon">+</div>
+                        <div class="slot-icon" id="slot1-icon">+</div>
                         <div class="slot-text" id="slot2-text">SLOT 2 EMPTY</div>
                     </div>
                 </div>
@@ -626,7 +626,7 @@
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
                 isAppMinimized = true;
-                autoMarkCardsForBackground();
+                autoMarkCardsForAllSlots();
             } else {
                 isAppMinimized = false;
             }
@@ -756,7 +756,8 @@
 
         updateDisplay();
 
-        function autoMarkCardsForBackground() {
+        // በሁሉም (Slot 1 እና Slot 2) ካርቴላዎች ላይ አዳዲስ የተጠሩ ቁጥሮችን በራስ-ሰር ምልክት የማድረግ (Auto-Mark) ተግባር
+        function autoMarkCardsForAllSlots() {
             if (!gameStarted) return;
             selectedCards.forEach(cardNum => {
                 const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
@@ -788,9 +789,8 @@
                 }
             }
 
-            if (isAppMinimized) {
-                autoMarkCardsForBackground();
-            }
+            // እዚህ ላይ ቁጥር ሲጠራ ሁለቱንም ካርቴላዎች አውቶማቲክ ቲክ እንዲያደርግ ይደረጋል
+            autoMarkCardsForAllSlots();
 
             updateRecentTags();
 
@@ -1028,6 +1028,7 @@
                     });
                 }
             }
+            autoMarkCardsForAllSlots();
         }
 
         function updateRecentTags() {
@@ -1090,19 +1091,15 @@
 
             let winningConditionsFound = [];
 
-            // 1. አግድም (Rows) ማረጋገጥ
             for (let r = 0; r < 5; r++) {
                 if (grid[r].every(cell => cell.marked)) winningConditionsFound.push({type: 'row', index: r});
             }
-            // 2. ቁመት (Columns) ማረጋገጥ
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c].marked)) winningConditionsFound.push({type: 'col', index: c});
             }
-            // 3. ሰያፍ (Diagonals) ማረጋገጥ
             if ([0,1,2,3,4].every(i => grid[i][i].marked)) winningConditionsFound.push({type: 'diag1'});
             if ([0,1,2,3,4].every(i => grid[i][4 - i].marked)) winningConditionsFound.push({type: 'diag2'});
 
-            // 4. አራቱ ማዕዘኖች (Four Corners: (0,0), (0,4), (4,0), (4,4)) ማረጋገጥ
             const corners = [grid[0][0], grid[0][4], grid[4][0], grid[4][4]];
             if (corners.every(cell => cell.marked)) {
                 winningConditionsFound.push({type: 'corners'});
