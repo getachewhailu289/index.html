@@ -628,8 +628,8 @@
             localStorage.setItem('y_saved_telegram_id', userTelegramId);
         }
 
-        // ወደ ሎካልአስተር (Localhost) ተቀይሯል
-        const SERVER_URL = 'http://localhost:3000';
+        // ከዚህ በፊት የነበረውን የ Render ሊንክ በዚህ ይቀይሩት:
+         const SERVER_URL = 'http://localhost:3000';
 
         let cardPrice = 10.00;
         let soldCount = 0;
@@ -1065,6 +1065,7 @@
             });
         }
 
+        // እዚህ ጋር ተጫዋቹ በአንዱ ስሎት ሲነካ በሌላኛው ስሎት ተመሳሳይ ቁጥር ካለ በራሱ አውቶማቲክ ቲክ (ቀለም) እንዲያዝ ተደርጓል
         function toggleMarkCell(cell, cardNum, r, c) {
             if (!gameStarted || bannedCards.includes(cardNum)) return;
             let val = cell.dataset.val;
@@ -1088,6 +1089,7 @@
                 delete markedCellsState[cellKey];
             }
 
+            // ተጫዋቹ ከሁለት በላይ (ሁለት) ካርዶች/ስሎቶች ካሉት እና ቁጥሩ በሁለተኛው ስሎት ላይ የሚገኝ ከሆነ አውቶማቲክ ምልክት ይሰጠዋል
             if (willBeMarked && selectedCards.length > 1) {
                 selectedCards.forEach(otherCardNum => {
                     if (otherCardNum !== cardNum) {
