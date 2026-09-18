@@ -154,6 +154,16 @@
             transform: scale(0.96);
         }
 
+        /* በሌላ ተጫዋች የተያዘ ካርቴላ (Inactive / Disabled) ከለር */
+        .number-cell.taken {
+            background: #cbd5e0 !important;
+            color: #a0aec0 !important;
+            cursor: not-allowed !important;
+            opacity: 0.5;
+            box-shadow: none;
+            transform: none !important;
+        }
+
         .slots-section {
             display: flex;
             flex-direction: column;
@@ -626,6 +636,7 @@
         let balance = 0.00;
 
         let selectedCards = localStorage.getItem('y_selectedCards') ? JSON.parse(localStorage.getItem('y_selectedCards')) : [];
+        let takenCards = []; // በሌሎች ተጫዋቾች የተያዙ ካርዶች ዝርዝር
         let gameStarted = false;
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
@@ -633,16 +644,6 @@
         let bannedCards = localStorage.getItem('y_bannedCards') ? JSON.parse(localStorage.getItem('y_bannedCards')) : [];
         let roundStartTime = localStorage.getItem('y_roundStartTime') ? parseInt(localStorage.getItem('y_roundStartTime')) : Date.now();
         let lastSyncedRoundStart = 0;
-
-        let isAppMinimized = false;
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-                isAppMinimized = true;
-                autoMarkCardsForAllSlots();
-            } else {
-                isAppMinimized = false;
-            }
-        });
 
         async function syncGameWithServer() {
             try {
@@ -653,6 +654,7 @@
                     const serverRoundStart = data.roundStartTime || roundStartTime;
                     calledBalls = data.calledBalls || [];
                     soldCount = data.soldCount || 0;
+                    takenCards = data.takenCards || [];
 
                     if (lastSyncedRoundStart !== serverRoundStart) {
                         lastSyncedRoundStart = serverRoundStart;
@@ -661,10 +663,9 @@
                             roundStartTime = serverRoundStart;
                             selectedCards = [];
                             markedCellsState = {};
-                            bannedCards = []; // አዲስ ዙር ሲጀምር የታገዱ ካርዶች ይለቀቃሉ
+                            bannedCards = []; 
                             saveState();
                             
-                            document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
                             const userCardsContainer = document.getElementById('activeUserCardsContainer');
                             if (userCardsContainer) userCardsContainer.innerHTML = '';
                             updateDisplay();
@@ -691,6 +692,7 @@
                     }
 
                     updateBoardAndCards();
+                    updateGridTakenStatus();
                 }
             } catch (e) {
                 console.log('የሰርቨር መረጃ ማግኘት አልተቻለም');
@@ -769,25 +771,18 @@
 
         updateDisplay();
 
-        function autoMarkCardsForAllSlots() {
-            if (!gameStarted) return;
-            selectedCards.forEach(cardNum => {
-                if (bannedCards.includes(cardNum)) return; // የታገደ ከሆነ አውቶማቲክ ማርክ አይደረግም
-                const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
-                if (!matrixBox) return;
-                matrixBox.querySelectorAll('.um-cell').forEach(cell => {
-                    let val = cell.dataset.val;
-                    let r = cell.dataset.row;
-                    let c = cell.dataset.col;
-                    let cellKey = `${cardNum}_${r}_${c}`;
+        function updateGridTakenStatus() {
+            if (gameStarted) return;
+            for (let i = 1; i <= 250; i++) {
+                const cell = document.querySelector(`.number-cell[data-number='${i}']`);
+                if (!cell) continue;
 
-                    if (val === '★' || calledBalls.includes(parseInt(val))) {
-                        cell.classList.add('marked');
-                        markedCellsState[cellKey] = true;
-                    }
-                });
-            });
-            saveState();
+                if (takenCards.includes(i) && !selectedCards.includes(i)) {
+                    cell.classList.add('taken');
+                } else {
+                    cell.classList.remove('taken');
+                }
+            }
         }
 
         function updateBoardAndCards() {
@@ -802,7 +797,6 @@
                 }
             }
 
-            autoMarkCardsForAllSlots();
             updateRecentTags();
 
             const soldEl = document.getElementById('sold-count');
@@ -835,6 +829,12 @@
 
         async function toggleSelect(num, cell) {
             if (gameStarted) return;
+            
+            if (cell.classList.contains('taken') || (takenCards.includes(num) && !selectedCards.includes(num))) {
+                showNotification('⚠️ ይህ ካርቴላ በሌላ ተጫዋች ተይዟል!');
+                return;
+            }
+
             const index = selectedCards.indexOf(num);
             
             if (index > -1) {
@@ -852,6 +852,7 @@
                 cell.classList.remove('selected');
                 saveState();
                 updateDisplay();
+                syncGameWithServer();
             } else {
                 if (balance < cardPrice) {
                     showNotification('ባላንስዎ በቂ ስላልሆነ ተጨማሪ ካርድ መምረጥ አይችሉም!');
@@ -870,7 +871,8 @@
                     });
                     const data = await res.json();
                     if (!data.success) {
-                        showNotification(data.message || 'ሂሳብዎ በቂ አይደለም');
+                        showNotification(data.message || 'ሂሳብዎ በቂ አይደለም ወይም ካርቴላው ተይዟል');
+                        syncGameWithServer();
                         return;
                     }
                     balance = data.balance;
@@ -883,6 +885,7 @@
                 cell.classList.add('selected');
                 saveState();
                 updateDisplay();
+                syncGameWithServer();
             }
         }
 
@@ -959,6 +962,7 @@
 
                 saveState();
                 updateDisplay();
+                syncGameWithServer();
             }
         }
 
@@ -1030,7 +1034,7 @@
                                 let markedClass = isMarked ? 'marked' : '';
                                 
                                 if (val === '★') {
-                                    cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">★</div>`;
+                                    cardHtml += `<div class="um-cell free-cell marked" data-val="★" data-row="${r}" data-col="${c}">★</div>`;
                                 } else {
                                     cardHtml += `<div class="um-cell ${markedClass}" data-val="${val}" data-row="${r}" data-col="${c}" onclick="toggleMarkCell(this, ${cardNum}, ${r}, ${c})">${val}</div>`;
                                 }
@@ -1042,7 +1046,6 @@
                     });
                 }
             }
-            autoMarkCardsForAllSlots();
         }
 
         function updateRecentTags() {
@@ -1062,6 +1065,7 @@
             });
         }
 
+        // እዚህ ጋር የተጠራው ቁጥር በአንዱ ስሎት ላይ ተጫዋቹ ሲነካው፣ በሁለተኛው ስሎት ላይ ካለ በራሱ (Auto-mark) እንዲደረግ የሚሰራው ዋናው ሎጂክ ተስተካክሏል
         function toggleMarkCell(cell, cardNum, r, c) {
             if (!gameStarted || bannedCards.includes(cardNum)) return;
             let val = cell.dataset.val;
@@ -1069,18 +1073,44 @@
 
             if (val === '★') return;
 
-            if (!calledBalls.includes(parseInt(val))) {
+            let numVal = parseInt(val);
+            if (!calledBalls.includes(numVal)) {
                 showNotification(`⚠️ ቁጥር ${val} ገና አልተጠራም!`);
                 return;
             }
 
-            if (cell.classList.contains('marked')) {
-                cell.classList.remove('marked');
-                delete markedCellsState[cellKey];
-            } else {
+            // የማርክ ሁኔታን መቀየር (የተመረጠውን ስሎት ቲክ ማድረግ ወይም ማጥፋት)
+            let willBeMarked = !cell.classList.contains('marked');
+
+            if (willBeMarked) {
                 cell.classList.add('marked');
                 markedCellsState[cellKey] = true;
+            } else {
+                cell.classList.remove('marked');
+                delete markedCellsState[cellKey];
             }
+
+            // ተጫዋቹ 2 ካርቴላዎች (Slot 1 እና Slot 2) ይዞ ከሆነ፣ በሌላኛው ስሎት ላይ ይህ ቁጥር ይኑር እንደሆነ ቼክ በማድረግ በራሱ ማርክ (Auto-mark) እንዲያደርግለት
+            if (willBeMarked && selectedCards.length > 1) {
+                selectedCards.forEach(otherCardNum => {
+                    if (otherCardNum !== cardNum) {
+                        let otherMatrixBox = document.getElementById(`matrix-box-${otherCardNum}`);
+                        if (otherMatrixBox) {
+                            otherMatrixBox.querySelectorAll('.um-cell').forEach(otherCell => {
+                                if (otherCell.dataset.val === String(numVal)) {
+                                    let otherRow = otherCell.dataset.row;
+                                    let otherCol = otherCell.dataset.col;
+                                    let otherKey = `${otherCardNum}_${otherRow}_${otherCol}`;
+
+                                    otherCell.classList.add('marked');
+                                    markedCellsState[otherKey] = true;
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
             saveState();
         }
 
@@ -1121,12 +1151,10 @@
                 winningConditionsFound.push({type: 'corners'});
             }
 
-            // መስመር ወይም ቼክ ካልተሟላ ያ ካርቴላ/ስሎት ለዚህ ዙር እንዲታገድ ይደረጋል!
             if (winningConditionsFound.length === 0) {
                 bannedCards.push(cardNum);
                 saveState();
 
-                // የካርዱን ቦክስ እና በትን ማሰናከል
                 const cardBox = document.getElementById(`card-box-${cardNum}`);
                 const bingoBtn = document.getElementById(`bingo-btn-${cardNum}`);
                 if (cardBox) cardBox.classList.add('banned-card');
@@ -1158,7 +1186,6 @@
             });
 
             if (uncalledNumbers.length > 0) {
-                // የውሸት ቢንጎ ወይም ያልተጠራ ቁጥር ሲኖርም ካርዱ እንዲታገድ ይደረጋል
                 bannedCards.push(cardNum);
                 saveState();
 
