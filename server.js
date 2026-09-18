@@ -7,7 +7,7 @@ const cors = require('cors');
 const BOT_TOKEN = '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY'; // የቦት ቶከንዎ
 const ADMIN_TELEGRAM_ID = 2119423483; // የአድሚን ID
 // በኮምፒውተርዎ ላይ ሎካል ሆነው ለመክፈት (አብዛኛውን ጊዜ index.html ፋይልን ከ public ፎልደር ውስጥ እንዲያነብ ይደረጋል)
-const WEB_APP_URL = 'http://localhost:3000/index.html'; 
+const WEB_APP_URL = 'https://pang-coffee-buddy.ngrok-free.dev/index.html';
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
