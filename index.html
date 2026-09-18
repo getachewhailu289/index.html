@@ -514,7 +514,7 @@
             <div class="header">
                 <div class="header-left">
                     <button class="close-btn">&#10005;</button>
-                    <div class="title">YejuBingo (Local)</div>
+                    <div class="title">የጁ ቢንጎ</div>
                 </div>
                 <div class="header-right">
                     <button class="dropdown-arrow">&#9660;</button>
@@ -525,7 +525,7 @@
             <div class="stats-bar">
                 <div class="stat-badge badge-room">
                     <span class="stat-label" style="color: #6b4f00;">ROOM</span>
-                    <span class="stat-value">VIP 💰</span>
+                    <span class="stat-value">Wel Come</span>
                 </div>
                 <div class="stat-badge badge-sold" id="sold-badge">
                     <span class="stat-label" style="color: #94a3b8;">SOLD</span>
@@ -566,7 +566,7 @@
             <div class="header">
                 <div class="header-left">
                     <button class="close-btn">&#10005;</button>
-                    <div class="title">YejuBingo (Local)</div>
+                    <div class="title">የጁ ቢንጎ </div>
                 </div>
                 <div class="header-right">
                     <button class="dropdown-arrow">&#9660;</button>
@@ -578,7 +578,7 @@
                 <div>ደራሽ <span id="derash-val">0 ETB</span></div>
                 <div>BALLS <span id="balls-val">0/75</span></div>
                 <div>PLAYERS <span id="players-val">0</span></div>
-                <div><button class="refresh-btn" onclick="manualRefresh()">🔄 ሪፍሬሽ</button></div>
+                <div><button class="refresh-btn" onclick="manualRefresh()">🔄 Refresh</button></div>
             </div>
 
             <div class="game-body">
@@ -595,8 +595,8 @@
 
                 <div class="game-main-area">
                     <div class="recent-balls-bar" id="recentBallsBar">
-                        <span style="font-size: 8px; font-weight: 700; color: #718096;">RECENT:</span>
-                        <div id="recentTagsContainer" style="display: flex; gap: 3px;"></div>
+                        <span style="font-size: 12px; font-weight: 800; color: #718096;">RECENT:</span>
+                        <div id="recentTagsContainer" style="display: flex; gap: 5px;"></div>
                     </div>
                     <div class="active-user-cards" id="activeUserCardsContainer"></div>
                 </div>
@@ -720,7 +720,7 @@
         setInterval(syncGameWithServer, 1000);
 
         async function manualRefresh() {
-            showNotification('🔄 ሎካል መረጃዎችን በማመሳሰል ላይ...');
+            showNotification('🔄  በማመሳሰል ላይ...');
             await syncGameWithServer();
             await fetchServerBalance();
             showNotification('✅ ሪፍሬሽ ተደርጓል!');
@@ -868,7 +868,7 @@
                         body: JSON.stringify({ userId: userTelegramId, amount: cardPrice, cardNumber: num })
                     });
                 } catch (e) {
-                    console.log('ሎካል ሪፋንድ ብቻ ተደረገ');
+                    console.log('የጁ ቢንጎ ታማኝነት ለራስ ነዉ፡፡');
                 }
             } else {
                 if (balance < cardPrice) {
