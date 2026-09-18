@@ -387,6 +387,12 @@
             border: 1px solid #cbd5e0;
         }
 
+        .user-card-box.banned-card {
+            opacity: 0.6;
+            background: #ffebee;
+            border-color: #ef5350;
+        }
+
         .user-card-title {
             font-size: 9px;
             font-weight: 700;
@@ -457,6 +463,11 @@
             font-weight: bold;
             border-radius: 3px;
             cursor: pointer;
+        }
+
+        .bingo-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
         }
 
         #custom-toast {
@@ -619,6 +630,7 @@
         let cardMatrices = localStorage.getItem('y_cardMatrices') ? JSON.parse(localStorage.getItem('y_cardMatrices')) : {};
         let calledBalls = [];
         let markedCellsState = localStorage.getItem('y_markedCellsState') ? JSON.parse(localStorage.getItem('y_markedCellsState')) : {};
+        let bannedCards = localStorage.getItem('y_bannedCards') ? JSON.parse(localStorage.getItem('y_bannedCards')) : [];
         let roundStartTime = localStorage.getItem('y_roundStartTime') ? parseInt(localStorage.getItem('y_roundStartTime')) : Date.now();
         let lastSyncedRoundStart = 0;
 
@@ -649,6 +661,7 @@
                             roundStartTime = serverRoundStart;
                             selectedCards = [];
                             markedCellsState = {};
+                            bannedCards = []; // አዲስ ዙር ሲጀምር የታገዱ ካርዶች ይለቀቃሉ
                             saveState();
                             
                             document.querySelectorAll('.number-cell.selected').forEach(c => c.classList.remove('selected'));
@@ -756,10 +769,10 @@
 
         updateDisplay();
 
-        // በሁሉም (Slot 1 እና Slot 2) ካርቴላዎች ላይ አዳዲስ የተጠሩ ቁጥሮችን በራስ-ሰር ምልክት የማድረግ (Auto-Mark) ተግባር
         function autoMarkCardsForAllSlots() {
             if (!gameStarted) return;
             selectedCards.forEach(cardNum => {
+                if (bannedCards.includes(cardNum)) return; // የታገደ ከሆነ አውቶማቲክ ማርክ አይደረግም
                 const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
                 if (!matrixBox) return;
                 matrixBox.querySelectorAll('.um-cell').forEach(cell => {
@@ -789,9 +802,7 @@
                 }
             }
 
-            // እዚህ ላይ ቁጥር ሲጠራ ሁለቱንም ካርቴላዎች አውቶማቲክ ቲክ እንዲያደርግ ይደረጋል
             autoMarkCardsForAllSlots();
-
             updateRecentTags();
 
             const soldEl = document.getElementById('sold-count');
@@ -818,6 +829,7 @@
         function saveState() {
             localStorage.setItem('y_markedCellsState', JSON.stringify(markedCellsState));
             localStorage.setItem('y_selectedCards', JSON.stringify(selectedCards));
+            localStorage.setItem('y_bannedCards', JSON.stringify(bannedCards));
             localStorage.setItem('y_roundStartTime', roundStartTime);
         }
 
@@ -993,10 +1005,12 @@
                     userCardsContainer.innerHTML = `<div style="font-size: 10px; color: #718096; text-align: center; padding: 15px;">ካርድ አልመረጡም</div>`;
                 } else {
                     selectedCards.forEach((cardNum, idx) => {
+                        const isBanned = bannedCards.includes(cardNum);
                         const cardBox = document.createElement('div');
-                        cardBox.className = 'user-card-box';
+                        cardBox.className = `user-card-box ${isBanned ? 'banned-card' : ''}`;
+                        cardBox.id = `card-box-${cardNum}`;
                         
-                        let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum})</div>`;
+                        let cardHtml = `<div class="user-card-title">SLOT ${idx + 1} (CARD #${cardNum}) ${isBanned ? '❌ (ታግዷል - የተሳሳተ ቢንጎ)' : ''}</div>`;
                         cardHtml += `<div class="user-matrix-header">
                             <div class="umh-b">B</div>
                             <div class="umh-i">I</div>
@@ -1022,7 +1036,7 @@
                                 }
                             }
                         }
-                        cardHtml += `</div><button class="bingo-btn" onclick="checkBingo(${cardNum})">BINGO!</button>`;
+                        cardHtml += `</div><button class="bingo-btn" id="bingo-btn-${cardNum}" ${isBanned ? 'disabled' : ''} onclick="checkBingo(${cardNum})">${isBanned ? 'ታግዷል' : 'BINGO!'}</button>`;
                         cardBox.innerHTML = cardHtml;
                         userCardsContainer.appendChild(cardBox);
                     });
@@ -1049,7 +1063,7 @@
         }
 
         function toggleMarkCell(cell, cardNum, r, c) {
-            if (!gameStarted) return;
+            if (!gameStarted || bannedCards.includes(cardNum)) return;
             let val = cell.dataset.val;
             let cellKey = `${cardNum}_${r}_${c}`;
 
@@ -1071,6 +1085,8 @@
         }
 
         async function checkBingo(cardNum) {
+            if (bannedCards.includes(cardNum)) return;
+
             const matrixBox = document.getElementById(`matrix-box-${cardNum}`);
             if (!matrixBox) return;
             const cells = matrixBox.querySelectorAll('.um-cell');
@@ -1105,8 +1121,21 @@
                 winningConditionsFound.push({type: 'corners'});
             }
 
+            // መስመር ወይም ቼክ ካልተሟላ ያ ካርቴላ/ስሎት ለዚህ ዙር እንዲታገድ ይደረጋል!
             if (winningConditionsFound.length === 0) {
-                showNotification(`❌ ካርድ #${cardNum}: አግድም፣ ቁመት፣ ሰያፍ ወይም አራቱ ማዕዘኖች ሙሉ በሙሉ አልተሟሉም!`);
+                bannedCards.push(cardNum);
+                saveState();
+
+                // የካርዱን ቦክስ እና በትን ማሰናከል
+                const cardBox = document.getElementById(`card-box-${cardNum}`);
+                const bingoBtn = document.getElementById(`bingo-btn-${cardNum}`);
+                if (cardBox) cardBox.classList.add('banned-card');
+                if (bingoBtn) {
+                    bingoBtn.disabled = true;
+                    bingoBtn.innerText = 'ታግዷል';
+                }
+
+                showNotification(`❌ የሰርቨር ማረጋገጫ: ካርድ #${cardNum} ምንም የተሟላ መስመር የለውም! ለዚህ ዙር ከጨዋታ ውጭ ሆኗል።`);
                 return;
             }
 
@@ -1129,7 +1158,19 @@
             });
 
             if (uncalledNumbers.length > 0) {
-                showNotification(`⚠️ የተሳሳተ ቢንጎ! ቁጥር ${uncalledNumbers.join(', ')} እስካሁን አልተጠራም!`);
+                // የውሸት ቢንጎ ወይም ያልተጠራ ቁጥር ሲኖርም ካርዱ እንዲታገድ ይደረጋል
+                bannedCards.push(cardNum);
+                saveState();
+
+                const cardBox = document.getElementById(`card-box-${cardNum}`);
+                const bingoBtn = document.getElementById(`bingo-btn-${cardNum}`);
+                if (cardBox) cardBox.classList.add('banned-card');
+                if (bingoBtn) {
+                    bingoBtn.disabled = true;
+                    bingoBtn.innerText = 'ታግዷል';
+                }
+
+                showNotification(`⚠️ የተሳሳተ ቢንጎ! ቁጥር ${uncalledNumbers.join(', ')} እስካሁን አልተጠራም! ካርድ #${cardNum} ታግዷል።`);
                 return;
             }
 
@@ -1145,6 +1186,7 @@
                     balance = data.balance;
                     showNotification(`🎉 አውቶ ቢንጎ! ካርድ #${cardNum} አሸንፏል! 🏆 +${prize} ETB ተሸልመዋል። ጨዋታው እንደገና ተጀምሯል።`);
                     selectedCards = [];
+                    bannedCards = [];
                     saveState();
                     updateDisplay();
                 } else {
