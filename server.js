@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 
-const BOT_TOKEN = '8903239538:AAGxzaU5YYhsSX9iT0ovsIkWzkGjAtG3QpY'; // የቦት ቶከንዎ
+const BOT_TOKEN = '8903239538:AAE1tmK_JFRfVQJ2sUsiHBPMq1dHYt5FR2M'; // የቦት ቶከንዎ
 const ADMIN_TELEGRAM_ID = 2119423483; // የአድሚን ID
 const WEB_APP_URL = 'https://getachewhailu289.github.io/index.html/'; // የ GitHub Pages ሊንክዎ
 
